@@ -1,0 +1,30 @@
+{
+  "name": "ha-buffer-tank-card",
+  "version": "0.1.0",
+  "description": "Home Assistant Lovelace card that renders a buffer/heat storage tank with layer gradient, temperature probes and optional thermocline band.",
+  "main": "dist/ha-buffer-tank-card.js",
+  "license": "MIT",
+  "author": "timzifer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/timzifer/ha-buffer-tank-card"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "custom-card-helpers": "^1.9.0",
+    "lit": "^3.1.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.12.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  }
+}
