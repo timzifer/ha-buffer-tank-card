@@ -82,7 +82,9 @@ class ActionHandler extends HTMLElement {
   }
 }
 
-customElements.define('buffer-tank-action-handler', ActionHandler);
+if (!customElements.get('buffer-tank-action-handler')) {
+  customElements.define('buffer-tank-action-handler', ActionHandler);
+}
 
 const getActionHandler = (): ActionHandler => {
   const body = document.body;

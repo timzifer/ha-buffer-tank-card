@@ -1,5 +1,5 @@
 import { LitElement, html, css, CSSResultGroup, TemplateResult, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
 import { handleAction, hasAction, ActionHandlerEvent } from 'custom-card-helpers';
 import { actionHandler } from './action-handler';
@@ -9,30 +9,38 @@ import { resolveTankData } from './data-source';
 import { renderTank } from './svg-renderer';
 
 const CARD_VERSION = '0.1.0';
+const CARD_TAG = 'buffer-tank-card';
 
-/* eslint-disable no-console */
-console.info(
-  `%c buffer-tank-card %c v${CARD_VERSION} `,
-  'background:#1976d2;color:#fff;padding:2px 6px;border-radius:3px 0 0 3px;font-weight:600;',
-  'background:#d32f2f;color:#fff;padding:2px 6px;border-radius:0 3px 3px 0;',
-);
+const globalAny = window as unknown as Record<string, unknown>;
+const alreadyLoaded = globalAny.__bufferTankCardLoaded === true;
+globalAny.__bufferTankCardLoaded = true;
 
-const customCards = ((window as unknown as Record<string, unknown>).customCards ??= []) as Array<{
-  type: string;
-  name: string;
-  description: string;
-  preview?: boolean;
-}>;
-customCards.push({
-  type: 'buffer-tank-card',
-  name: 'Buffer Tank Card',
-  description: 'Visualizes a buffer/heat storage tank with a temperature gradient and probes.',
-  preview: true,
-});
+if (!alreadyLoaded) {
+  /* eslint-disable no-console */
+  console.info(
+    `%c buffer-tank-card %c v${CARD_VERSION} `,
+    'background:#1976d2;color:#fff;padding:2px 6px;border-radius:3px 0 0 3px;font-weight:600;',
+    'background:#d32f2f;color:#fff;padding:2px 6px;border-radius:0 3px 3px 0;',
+  );
+
+  const customCards = (globalAny.customCards ??= []) as Array<{
+    type: string;
+    name: string;
+    description: string;
+    preview?: boolean;
+  }>;
+  if (!customCards.some((c) => c.type === CARD_TAG)) {
+    customCards.push({
+      type: CARD_TAG,
+      name: 'Buffer Tank Card',
+      description: 'Visualizes a buffer/heat storage tank with a temperature gradient and probes.',
+      preview: true,
+    });
+  }
+}
 
 let instanceCounter = 0;
 
-@customElement('buffer-tank-card')
 export class BufferTankCard extends LitElement {
   @property({ attribute: false }) public hass?: HomeAssistant;
 
@@ -181,4 +189,8 @@ declare global {
   interface HTMLElementTagNameMap {
     'buffer-tank-card': BufferTankCard;
   }
+}
+
+if (!customElements.get(CARD_TAG)) {
+  customElements.define(CARD_TAG, BufferTankCard);
 }
