@@ -75,7 +75,8 @@ The card reads the following attributes from the entity:
 | `thermocline_position_mm` | Center of the thermocline band |
 | `thermocline_thickness_mm` | Thickness of the band |
 | `max_temperature` | Upper bound of the color scale |
-| `reference_temperature` | Lower bound of the color scale |
+| `min_temperature` | Lower bound of the color scale (preferred) |
+| `reference_temperature` | Lower bound of the color scale (fallback, same basis as heat-loss reference) |
 
 The entity `state` is rendered as the *State of Charge* in the overlay.
 
@@ -89,8 +90,8 @@ side, `show_stats`, `show_thermocline`, and the actions in YAML.
 | `entity` | — | Mode A. Sensor entity from the buffer tank integration. |
 | `tank_height` | — | Mode B. Tank height in millimeters. |
 | `sensors[]` | — | Mode B. List of `{ entity, name?, position }`. |
-| `min_temperature` | `20` or `reference_temperature` | Lower color-scale bound. |
-| `max_temperature` | `80` or attr `max_temperature` | Upper color-scale bound. |
+| `min_temperature` | attr `min_temperature` or `reference_temperature` or `20` | Lower color-scale bound. |
+| `max_temperature` | attr `max_temperature` or `80` | Upper color-scale bound. |
 | `color_cold` | `#1976d2` | Gradient base color. |
 | `color_hot` | `#d32f2f` | Gradient top color. |
 | `probe_side` | `alternating` | `left`, `right`, or `alternating`. |
