@@ -126,7 +126,12 @@ function resolveModeA(hass: HomeAssistant, config: CardConfig): TankData {
     const position = parseNumber(pr.position_mm);
     if (position === null) continue;
     probes.push({
-      entity: typeof pr.entity === 'string' ? pr.entity : undefined,
+      entity:
+        typeof pr.entity === 'string'
+          ? pr.entity
+          : typeof pr.entity_id === 'string'
+            ? pr.entity_id
+            : undefined,
       name: typeof pr.name === 'string' ? pr.name : undefined,
       position_mm: position,
       temperature: parseNumber(pr.temperature),
