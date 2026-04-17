@@ -140,8 +140,9 @@ function resolveModeA(hass: HomeAssistant, config: CardConfig): TankData {
   }
 
   const refTemp = parseNumber(attrs.reference_temperature);
+  const minAttr = parseNumber(attrs.min_temperature);
   const maxAttr = parseNumber(attrs.max_temperature);
-  const minTemp = config.min_temperature ?? refTemp ?? DEFAULT_MIN_TEMP;
+  const minTemp = config.min_temperature ?? minAttr ?? refTemp ?? DEFAULT_MIN_TEMP;
   const maxTemp = config.max_temperature ?? maxAttr ?? DEFAULT_MAX_TEMP;
 
   const soc = parseNumber(state.state);

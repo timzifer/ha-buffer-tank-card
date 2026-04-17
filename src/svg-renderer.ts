@@ -136,7 +136,10 @@ function renderProbes(
     const lineX2 = onLeft ? TANK_LEFT + PROBE_TICK : TANK_RIGHT - PROBE_TICK;
     const labelX = onLeft ? TANK_LEFT - 4 : TANK_RIGHT + 4;
     const textAnchor = onLeft ? 'end' : 'start';
-    const label = formatProbeLabel(probe);
+    const name = probe.name ?? probe.entity ?? 'Probe';
+    const temp = probe.temperature;
+    const tempStr =
+      temp === null || !Number.isFinite(temp) ? 'n/a' : `${temp.toFixed(1)} °C`;
 
     elements.push(svg`
       <line
@@ -150,25 +153,29 @@ function renderProbes(
       />
       <text
         x="${labelX}"
-        y="${y + 3}"
+        y="${y - 1}"
         text-anchor="${textAnchor}"
         font-size="9"
         fill="var(--primary-text-color, #222)"
         paint-order="stroke"
         stroke="var(--card-background-color, #fff)"
         stroke-width="2"
-      >${label}</text>
+      >${name}</text>
+      <text
+        x="${labelX}"
+        y="${y + 9}"
+        text-anchor="${textAnchor}"
+        font-size="9"
+        font-weight="600"
+        fill="var(--primary-text-color, #222)"
+        paint-order="stroke"
+        stroke="var(--card-background-color, #fff)"
+        stroke-width="2"
+      >${tempStr}</text>
     `);
   });
 
   return elements;
-}
-
-function formatProbeLabel(probe: ProbeData): string {
-  const name = probe.name ?? probe.entity ?? 'Probe';
-  const temp = probe.temperature;
-  const tempStr = temp === null || !Number.isFinite(temp) ? 'n/a' : `${temp.toFixed(1)} °C`;
-  return `${name}: ${tempStr}`;
 }
 
 function renderThermocline(data: TankData, hatchId: string): SVGTemplateResult | null {
