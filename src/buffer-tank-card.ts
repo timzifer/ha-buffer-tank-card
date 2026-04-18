@@ -191,12 +191,16 @@ declare global {
   }
 }
 
+const isAlreadyDefinedError = (err: unknown): boolean => {
+  if (err instanceof DOMException && err.name === 'NotSupportedError') return true;
+  const msg = (err as { message?: string } | null)?.message ?? '';
+  return /already been used|already been defined|already defined/i.test(msg);
+};
+
 if (!customElements.get(CARD_TAG)) {
   try {
     customElements.define(CARD_TAG, BufferTankCard);
   } catch (err) {
-    if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
-      throw err;
-    }
+    if (!isAlreadyDefinedError(err)) throw err;
   }
 }

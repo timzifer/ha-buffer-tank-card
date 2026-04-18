@@ -86,9 +86,11 @@ if (!customElements.get('buffer-tank-action-handler')) {
   try {
     customElements.define('buffer-tank-action-handler', ActionHandler);
   } catch (err) {
-    if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
-      throw err;
-    }
+    const msg = (err as { message?: string } | null)?.message ?? '';
+    const isAlreadyDefined =
+      (err instanceof DOMException && err.name === 'NotSupportedError') ||
+      /already been used|already been defined|already defined/i.test(msg);
+    if (!isAlreadyDefined) throw err;
   }
 }
 
