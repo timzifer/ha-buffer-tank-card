@@ -111,12 +111,12 @@ is disabled it is rendered as a semi-transparent outline only.
 
 ```yaml
 heat_exchanger:
-  position: bottom          # top | bottom (default: bottom)
+  position: bottom                      # top | bottom (default: bottom)
   supply_entity: sensor.coil_supply_temp
   return_entity: sensor.coil_return_temp
-  enabled: true             # default true; false → outline only, transparent
-  turns: 6                  # default 6
-  height_fraction: 0.35     # fraction of the tank height, default 0.35
+  enabled: binary_sensor.coil_active    # boolean or entity id; default true
+  turns: 6                              # default 6
+  height_fraction: 0.35                 # fraction of the tank height, default 0.35
 ```
 
 | Option | Default | Notes |
@@ -124,7 +124,7 @@ heat_exchanger:
 | `heat_exchanger.position` | `bottom` | Where the coil sits (`top` or `bottom`). |
 | `heat_exchanger.supply_entity` | — | Sensor for the supply-side (top of coil) temperature. |
 | `heat_exchanger.return_entity` | — | Sensor for the return-side (bottom of coil) temperature. |
-| `heat_exchanger.enabled` | `true` | When `false`, only the outline is drawn (no fill, slightly transparent). |
+| `heat_exchanger.enabled` | `true` | Boolean, or an entity id (e.g. `binary_sensor.coil_active`, `switch.*`, `input_boolean.*`) whose state decides on/off. When off, only the outline is drawn (no fill, slightly transparent). |
 | `heat_exchanger.turns` | `6` | Number of visible coil turns. |
 | `heat_exchanger.height_fraction` | `0.35` | Fraction of the tank height the coil occupies. |
 

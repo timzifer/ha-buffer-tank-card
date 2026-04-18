@@ -42,10 +42,15 @@ function validateHeatExchanger(raw: unknown): HeatExchangerConfig {
     out.return_entity = r.return_entity;
   }
   if (r.enabled !== undefined) {
-    if (typeof r.enabled !== 'boolean') {
-      throw new ConfigError('`heat_exchanger.enabled` must be a boolean.');
+    if (typeof r.enabled === 'boolean') {
+      out.enabled = r.enabled;
+    } else if (typeof r.enabled === 'string' && r.enabled) {
+      out.enabled = r.enabled;
+    } else {
+      throw new ConfigError(
+        '`heat_exchanger.enabled` must be a boolean or a non-empty entity id.',
+      );
     }
-    out.enabled = r.enabled;
   }
   if (r.turns !== undefined) {
     if (typeof r.turns !== 'number' || !Number.isFinite(r.turns) || r.turns < 1) {
@@ -190,13 +195,11 @@ export const DEFAULT_HX_POSITION: 'top' | 'bottom' = 'bottom';
 
 export function resolveHeatExchangerDefaults(hx: HeatExchangerConfig): {
   position: 'top' | 'bottom';
-  enabled: boolean;
   turns: number;
   height_fraction: number;
 } {
   return {
     position: hx.position ?? DEFAULT_HX_POSITION,
-    enabled: hx.enabled ?? true,
     turns: hx.turns ?? DEFAULT_HX_TURNS,
     height_fraction: hx.height_fraction ?? DEFAULT_HX_HEIGHT_FRACTION,
   };

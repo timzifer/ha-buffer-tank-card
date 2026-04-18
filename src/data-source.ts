@@ -39,9 +39,34 @@ export function resolveTankData(hass: HomeAssistant, config: CardConfig): TankDa
   return base;
 }
 
+const ENABLED_TRUE_STATES = new Set(['on', 'true', 'yes', 'open', 'enabled', 'active', '1']);
+const ENABLED_FALSE_STATES = new Set([
+  'off',
+  'false',
+  'no',
+  'closed',
+  'disabled',
+  'inactive',
+  '0',
+]);
+
+function resolveEnabled(hass: HomeAssistant, value: boolean | string | undefined): boolean {
+  if (value === undefined) return true;
+  if (typeof value === 'boolean') return value;
+  const state = hass?.states?.[value]?.state;
+  if (state === undefined || state === null) return false;
+  const s = String(state).toLowerCase();
+  if (ENABLED_TRUE_STATES.has(s)) return true;
+  if (ENABLED_FALSE_STATES.has(s)) return false;
+  const n = parseFloat(s);
+  if (Number.isFinite(n)) return n !== 0;
+  return false;
+}
+
 function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExchangerData {
   const raw = config.heat_exchanger!;
   const defaults = resolveHeatExchangerDefaults(raw);
+  const enabled = resolveEnabled(hass, raw.enabled);
   const supply = raw.supply_entity
     ? parseNumber(hass?.states?.[raw.supply_entity]?.state)
     : null;
@@ -50,7 +75,7 @@ function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExch
     : null;
   return {
     position: defaults.position,
-    enabled: defaults.enabled,
+    enabled,
     turns: defaults.turns,
     height_fraction: defaults.height_fraction,
     supply_temperature: supply,

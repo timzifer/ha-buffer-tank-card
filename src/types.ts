@@ -14,7 +14,7 @@ export interface HeatExchangerConfig {
   position?: HeatExchangerPosition;
   supply_entity?: string;
   return_entity?: string;
-  enabled?: boolean;
+  enabled?: boolean | string;
   turns?: number;
   height_fraction?: number;
   name?: string;
