@@ -38,28 +38,30 @@ var HaBufferTankCard=function(t){"use strict";function e(t,e,n,i){var r,o=argume
       fill="url(#${e})"
       pointer-events="none"
     />
-  `}(t,n.hatchId):null,d=t.heat_exchanger?function(t,e,n,i,r,o){const s=function(t){const e=Math.max(1,Math.round(t.turns)),n=Bt(t.height_fraction,.05,1),i=10,r=Gt-2*i,o=Math.max(40,Math.min(r,Gt*n)),s="top"===t.position?Kt+i:Zt-i-o,a=s+o,c=100,h=.36*qt,l=Math.max(4,Math.min(10,o/(4*e))),u=(o-2*l)/e,d=48,p=e*d,m=[];for(let t=0;t<=p;t++){const e=t/d,n=2*Math.PI*e,i=c+h*Math.cos(n),r=s+l+e*u+l*Math.sin(n);m.push({x:i,y:r,front:Math.sin(n)>0})}return{regionTop:s,regionBottom:a,cx:c,rx:h,ry:l,points:m}}(t),{regionTop:a,regionBottom:c,points:h}=s,{front:l,back:u}=function(t){const e=[],n=[];if(0===t.length)return{front:e,back:n};let i=t[0].front,r=[t[0]];for(let o=1;o<t.length;o++){const s=t[o];s.front===i?r.push(s):(r.push(s),(i?e:n).push(Xt(r)),r=[s],i=s.front)}r.length>1&&(i?e:n).push(Xt(r));return{front:e,back:n}}(h);if(!t.enabled){const t="var(--primary-text-color, #444)";return G`
-      <g class="buffer-tank-hx buffer-tank-hx--disabled" opacity="0.45" pointer-events="none">
+  `}(t,n.hatchId):null,d=t.heat_exchanger?function(t,e,n,i,r,o){const s=function(t){const e=Math.max(1,Math.round(t.turns)),n=Bt(t.height_fraction,.05,1),i=10,r=Gt-2*i,o=Math.max(40,Math.min(r,Gt*n)),s="top"===t.position?Kt+i:Zt-i-o,a=s+o,c=100,h=45.6,l=Math.max(6,Math.min(18,o/(3*e))),u=(o-2*l)/e,d=Bt(.55*u,6,12),p=64,m=e*p,f=[];for(let t=0;t<=m;t++){const e=t/p,n=2*Math.PI*e,i=c+h*Math.cos(n),r=s+l+e*u+l*Math.sin(n);f.push({x:i,y:r,front:Math.sin(n)>0})}return{regionTop:s,regionBottom:a,cx:c,rx:h,ry:l,pitch:u,strokeWidth:d,points:f}}(t),{regionTop:a,regionBottom:c,points:h,strokeWidth:l}=s,{front:u,back:d}=function(t){const e=[],n=[];if(0===t.length)return{front:e,back:n};let i=t[0].front,r=[t[0]];for(let o=1;o<t.length;o++){const s=t[o];s.front===i?r.push(s):(r.push(s),(i?e:n).push(Xt(r)),r=[s],i=s.front)}r.length>1&&(i?e:n).push(Xt(r));return{front:e,back:n}}(h),p=l+1.5,m=.9*l,f=.9*p;if(!t.enabled){const t="var(--primary-text-color, #444)";return G`
+      <g class="buffer-tank-hx buffer-tank-hx--disabled" opacity="0.55" pointer-events="none">
+        ${d.map(e=>G`
+          <path
+            d="${e}"
+            fill="none"
+            stroke="${t}"
+            stroke-width="${m}"
+            stroke-linecap="round"
+            stroke-dasharray="3 3"
+            fill-opacity="0"
+            opacity="0.5"
+          />`)}
         ${u.map(e=>G`
           <path
             d="${e}"
             fill="none"
             stroke="${t}"
-            stroke-width="1.2"
+            stroke-width="${l}"
             stroke-linecap="round"
-            stroke-dasharray="2 2"
-            opacity="0.55"
-          />`)}
-        ${l.map(e=>G`
-          <path
-            d="${e}"
-            fill="none"
-            stroke="${t}"
-            stroke-width="1.6"
-            stroke-linecap="round"
+            opacity="0.85"
           />`)}
       </g>
-    `}const d=t.supply_temperature,p=t.return_temperature,m=Dt(i,r,.5),f=null!==d&&Number.isFinite(d)?zt(d,e,n,i,r):m,_=null!==p&&Number.isFinite(p)?zt(p,e,n,i,r):m;return G`
+    `}const _=t.supply_temperature,g=t.return_temperature,y=Dt(i,r,.5),$=null!==_&&Number.isFinite(_)?zt(_,e,n,i,r):y,b=null!==g&&Number.isFinite(g)?zt(g,e,n,i,r):y,v="var(--primary-text-color, #222)";return G`
     <defs>
       <linearGradient
         id="${o}"
@@ -69,37 +71,46 @@ var HaBufferTankCard=function(t){"use strict";function e(t,e,n,i){var r,o=argume
         x2="0"
         y2="${c}"
       >
-        <stop offset="0" stop-color="${f}" />
-        <stop offset="1" stop-color="${_}" />
+        <stop offset="0" stop-color="${$}" />
+        <stop offset="1" stop-color="${b}" />
       </linearGradient>
     </defs>
     <g class="buffer-tank-hx" pointer-events="none">
+      ${d.map(t=>G`
+        <path
+          d="${t}"
+          fill="none"
+          stroke="${v}"
+          stroke-width="${f}"
+          stroke-linecap="round"
+          opacity="0.35"
+        />`)}
+      ${d.map(t=>G`
+        <path
+          d="${t}"
+          fill="none"
+          stroke="url(#${o})"
+          stroke-width="${m}"
+          stroke-linecap="round"
+          opacity="0.75"
+        />`)}
+      ${u.map(t=>G`
+        <path
+          d="${t}"
+          fill="none"
+          stroke="${v}"
+          stroke-width="${p}"
+          stroke-linecap="round"
+          opacity="0.55"
+        />`)}
       ${u.map(t=>G`
         <path
           d="${t}"
           fill="none"
           stroke="url(#${o})"
-          stroke-width="3"
+          stroke-width="${l}"
           stroke-linecap="round"
-          opacity="0.4"
-        />`)}
-      ${l.map(t=>G`
-        <path
-          d="${t}"
-          fill="none"
-          stroke="url(#${o})"
-          stroke-width="4"
-          stroke-linecap="round"
-          opacity="0.95"
-        />`)}
-      ${l.map(t=>G`
-        <path
-          d="${t}"
-          fill="none"
-          stroke="var(--primary-text-color, #222)"
-          stroke-width="0.6"
-          stroke-linecap="round"
-          opacity="0.35"
+          opacity="1"
         />`)}
     </g>
   `}(t.heat_exchanger,o,s,i,r,n.coilGradientId):null,p=c?function(t){const e=[];"A"===t.mode&&null!==t.soc&&Number.isFinite(t.soc)&&e.push(`SoC: ${t.soc.toFixed(0)} %`);null!==t.average&&e.push(`Ø ${t.average.toFixed(1)} °C`);null!==t.delta&&e.push(`Δ ${t.delta.toFixed(1)} K`);if(0===e.length)return null;const n=100,i=200-18*(e.length-1)/2;return G`

@@ -215,14 +215,18 @@ interface CoilPoint {
   front: boolean;
 }
 
-function buildCoilGeometry(hx: HeatExchangerData): {
+interface CoilGeometry {
   regionTop: number;
   regionBottom: number;
   cx: number;
   rx: number;
   ry: number;
+  pitch: number;
+  strokeWidth: number;
   points: CoilPoint[];
-} {
+}
+
+function buildCoilGeometry(hx: HeatExchangerData): CoilGeometry {
   const turns = Math.max(1, Math.round(hx.turns));
   const frac = clamp(hx.height_fraction, 0.05, 1);
   const margin = 10;
@@ -233,11 +237,14 @@ function buildCoilGeometry(hx: HeatExchangerData): {
   const regionBottom = regionTop + regionH;
 
   const cx = TANK_X + TANK_W / 2;
-  const rx = TANK_W * 0.36;
-  const ry = Math.max(4, Math.min(10, regionH / (turns * 4)));
+  const rx = TANK_W * 0.38;
+  const ry = Math.max(6, Math.min(18, regionH / (turns * 3)));
   const pitch = (regionH - 2 * ry) / turns;
+  // Coil tube thickness: scale with turn pitch so turns don't visually merge,
+  // clamped so it is always clearly visible.
+  const strokeWidth = clamp(pitch * 0.55, 6, 12);
 
-  const samplesPerTurn = 48;
+  const samplesPerTurn = 64;
   const total = turns * samplesPerTurn;
   const points: CoilPoint[] = [];
   for (let i = 0; i <= total; i++) {
@@ -247,7 +254,7 @@ function buildCoilGeometry(hx: HeatExchangerData): {
     const y = regionTop + ry + t * pitch + ry * Math.sin(theta);
     points.push({ x, y, front: Math.sin(theta) > 0 });
   }
-  return { regionTop, regionBottom, cx, rx, ry, points };
+  return { regionTop, regionBottom, cx, rx, ry, pitch, strokeWidth, points };
 }
 
 function pointsToPath(pts: { x: number; y: number }[]): string {
@@ -289,23 +296,30 @@ function renderHeatExchanger(
   gradientId: string,
 ): SVGTemplateResult {
   const geom = buildCoilGeometry(hx);
-  const { regionTop, regionBottom, points } = geom;
+  const { regionTop, regionBottom, points, strokeWidth } = geom;
   const { front, back } = splitCoilPaths(points);
+
+  // Darker outline sits under the fill to add depth and keep the coil
+  // readable on top of the tank gradient.
+  const outlineWidth = strokeWidth + 1.5;
+  const backStroke = strokeWidth * 0.9;
+  const backOutline = outlineWidth * 0.9;
 
   if (!hx.enabled) {
     const frameStroke = 'var(--primary-text-color, #444)';
     return svg`
-      <g class="buffer-tank-hx buffer-tank-hx--disabled" opacity="0.45" pointer-events="none">
+      <g class="buffer-tank-hx buffer-tank-hx--disabled" opacity="0.55" pointer-events="none">
         ${back.map(
           (d) => svg`
           <path
             d="${d}"
             fill="none"
             stroke="${frameStroke}"
-            stroke-width="1.2"
+            stroke-width="${backStroke}"
             stroke-linecap="round"
-            stroke-dasharray="2 2"
-            opacity="0.55"
+            stroke-dasharray="3 3"
+            fill-opacity="0"
+            opacity="0.5"
           />`,
         )}
         ${front.map(
@@ -314,8 +328,9 @@ function renderHeatExchanger(
             d="${d}"
             fill="none"
             stroke="${frameStroke}"
-            stroke-width="1.6"
+            stroke-width="${strokeWidth}"
             stroke-linecap="round"
+            opacity="0.85"
           />`,
         )}
       </g>
@@ -333,6 +348,7 @@ function renderHeatExchanger(
     returnT !== null && Number.isFinite(returnT)
       ? temperatureToColor(returnT, minT, maxT, cold, hot)
       : mid;
+  const outlineColor = 'var(--primary-text-color, #222)';
 
   return svg`
     <defs>
@@ -354,32 +370,43 @@ function renderHeatExchanger(
         <path
           d="${d}"
           fill="none"
-          stroke="url(#${gradientId})"
-          stroke-width="3"
-          stroke-linecap="round"
-          opacity="0.4"
-        />`,
-      )}
-      ${front.map(
-        (d) => svg`
-        <path
-          d="${d}"
-          fill="none"
-          stroke="url(#${gradientId})"
-          stroke-width="4"
-          stroke-linecap="round"
-          opacity="0.95"
-        />`,
-      )}
-      ${front.map(
-        (d) => svg`
-        <path
-          d="${d}"
-          fill="none"
-          stroke="var(--primary-text-color, #222)"
-          stroke-width="0.6"
+          stroke="${outlineColor}"
+          stroke-width="${backOutline}"
           stroke-linecap="round"
           opacity="0.35"
+        />`,
+      )}
+      ${back.map(
+        (d) => svg`
+        <path
+          d="${d}"
+          fill="none"
+          stroke="url(#${gradientId})"
+          stroke-width="${backStroke}"
+          stroke-linecap="round"
+          opacity="0.75"
+        />`,
+      )}
+      ${front.map(
+        (d) => svg`
+        <path
+          d="${d}"
+          fill="none"
+          stroke="${outlineColor}"
+          stroke-width="${outlineWidth}"
+          stroke-linecap="round"
+          opacity="0.55"
+        />`,
+      )}
+      ${front.map(
+        (d) => svg`
+        <path
+          d="${d}"
+          fill="none"
+          stroke="url(#${gradientId})"
+          stroke-width="${strokeWidth}"
+          stroke-linecap="round"
+          opacity="1"
         />`,
       )}
     </g>
