@@ -106,8 +106,10 @@ side, `show_stats`, `show_thermocline`, and the actions in YAML.
 Draws a coiled (helical) heat exchanger inside the tank. The coil's color
 gradient runs along the wendel from its supply end (top turn) to its return end
 (bottom turn); both ends are mapped onto the tank's `min_temperature` /
-`max_temperature` range (cold → `color_cold`, hot → `color_hot`). If the coil
-is disabled it is rendered as a semi-transparent outline only.
+`max_temperature` range (cold → `color_cold`, hot → `color_hot`). Straight
+supply and return pipes extend out of the right side of the tank and carry the
+current temperature as a label. If the coil is disabled it is rendered as a
+semi-transparent outline only.
 
 ```yaml
 heat_exchanger:
@@ -117,16 +119,20 @@ heat_exchanger:
   enabled: binary_sensor.coil_active    # boolean or entity id; default true
   turns: 6                              # default 6
   height_fraction: 0.35                 # fraction of the tank height, default 0.35
+  flow_animation: true                  # default false; animates dashes along the coil
+  flow_speed: 2                         # seconds per dash cycle; default 3
 ```
 
 | Option | Default | Notes |
 | --- | --- | --- |
 | `heat_exchanger.position` | `bottom` | Where the coil sits (`top` or `bottom`). |
-| `heat_exchanger.supply_entity` | — | Sensor for the supply-side (top of coil) temperature. |
-| `heat_exchanger.return_entity` | — | Sensor for the return-side (bottom of coil) temperature. |
-| `heat_exchanger.enabled` | `true` | Boolean, or an entity id (e.g. `binary_sensor.coil_active`, `switch.*`, `input_boolean.*`) whose state decides on/off. When off, only the outline is drawn (no fill, slightly transparent). |
+| `heat_exchanger.supply_entity` | — | Sensor for the supply-side (top of coil) temperature. Also used for the supply-pipe label. |
+| `heat_exchanger.return_entity` | — | Sensor for the return-side (bottom of coil) temperature. Also used for the return-pipe label. |
+| `heat_exchanger.enabled` | `true` | Boolean, or an entity id (e.g. `binary_sensor.coil_active`, `switch.*`, `input_boolean.*`) whose state decides on/off. When off, only the outline is drawn (no fill, slightly transparent) and flow animation is suppressed. |
 | `heat_exchanger.turns` | `6` | Number of visible coil turns. |
 | `heat_exchanger.height_fraction` | `0.35` | Fraction of the tank height the coil occupies. |
+| `heat_exchanger.flow_animation` | `false` | When `true` and the coil is enabled, animated dashes flow from the supply pipe through the coil to the return pipe. Respects `prefers-reduced-motion`. |
+| `heat_exchanger.flow_speed` | `3` | Seconds per animation cycle (lower = faster). |
 
 ## Development
 

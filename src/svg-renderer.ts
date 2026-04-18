@@ -215,6 +215,13 @@ interface CoilPoint {
   front: boolean;
 }
 
+interface PipeSegment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 interface CoilGeometry {
   regionTop: number;
   regionBottom: number;
@@ -224,12 +231,18 @@ interface CoilGeometry {
   pitch: number;
   strokeWidth: number;
   points: CoilPoint[];
+  supplyPipe: PipeSegment;
+  returnPipe: PipeSegment;
+  flowPath: string;
+  labelX: number;
 }
+
+const PIPE_END_X = VIEW_W - 8;
 
 function buildCoilGeometry(hx: HeatExchangerData): CoilGeometry {
   const turns = Math.max(1, Math.round(hx.turns));
   const frac = clamp(hx.height_fraction, 0.05, 1);
-  const margin = 10;
+  const margin = 14;
   const available = TANK_H - 2 * margin;
   const regionH = Math.max(40, Math.min(available, TANK_H * frac));
   const regionTop =
@@ -254,7 +267,46 @@ function buildCoilGeometry(hx: HeatExchangerData): CoilGeometry {
     const y = regionTop + ry + t * pitch + ry * Math.sin(theta);
     points.push({ x, y, front: Math.sin(theta) > 0 });
   }
-  return { regionTop, regionBottom, cx, rx, ry, pitch, strokeWidth, points };
+
+  const first = points[0];
+  const last = points[points.length - 1];
+  const supplyPipe: PipeSegment = {
+    x1: first.x,
+    y1: first.y,
+    x2: PIPE_END_X,
+    y2: first.y,
+  };
+  const returnPipe: PipeSegment = {
+    x1: last.x,
+    y1: last.y,
+    x2: PIPE_END_X,
+    y2: last.y,
+  };
+
+  // Single continuous path from supply-pipe inlet through every coil sample
+  // and out through the return pipe. Used by the flow animation overlay.
+  const flowPoints: { x: number; y: number }[] = [
+    { x: supplyPipe.x2, y: supplyPipe.y2 },
+    { x: supplyPipe.x1, y: supplyPipe.y1 },
+    ...points,
+    { x: returnPipe.x2, y: returnPipe.y2 },
+  ];
+  const flowPath = pointsToPath(flowPoints);
+
+  return {
+    regionTop,
+    regionBottom,
+    cx,
+    rx,
+    ry,
+    pitch,
+    strokeWidth,
+    points,
+    supplyPipe,
+    returnPipe,
+    flowPath,
+    labelX: PIPE_END_X,
+  };
 }
 
 function pointsToPath(pts: { x: number; y: number }[]): string {
@@ -287,6 +339,15 @@ function splitCoilPaths(points: CoilPoint[]): { front: string[]; back: string[] 
   return { front, back };
 }
 
+function formatTemperature(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return 'n/a';
+  return `${value.toFixed(1)} °C`;
+}
+
+function pipePath(p: PipeSegment): string {
+  return `M${p.x1.toFixed(2)} ${p.y1.toFixed(2)} L${p.x2.toFixed(2)} ${p.y2.toFixed(2)}`;
+}
+
 function renderHeatExchanger(
   hx: HeatExchangerData,
   minT: number,
@@ -296,19 +357,34 @@ function renderHeatExchanger(
   gradientId: string,
 ): SVGTemplateResult {
   const geom = buildCoilGeometry(hx);
-  const { regionTop, regionBottom, points, strokeWidth } = geom;
+  const {
+    regionTop,
+    regionBottom,
+    points,
+    strokeWidth,
+    supplyPipe,
+    returnPipe,
+    flowPath,
+    labelX,
+  } = geom;
   const { front, back } = splitCoilPaths(points);
 
   // Darker outline sits under the fill to add depth and keep the coil
   // readable on top of the tank gradient.
   const outlineWidth = strokeWidth + 1.5;
-  const backStroke = strokeWidth * 0.9;
-  const backOutline = outlineWidth * 0.9;
+  const backStroke = strokeWidth * 0.95;
+  const backOutline = outlineWidth * 0.95;
+
+  const supplyPipeD = pipePath(supplyPipe);
+  const returnPipeD = pipePath(returnPipe);
+
+  const supplyLabelY = supplyPipe.y1 - strokeWidth / 2 - 3;
+  const returnLabelY = returnPipe.y1 + strokeWidth / 2 + 10;
 
   if (!hx.enabled) {
     const frameStroke = 'var(--primary-text-color, #444)';
     return svg`
-      <g class="buffer-tank-hx buffer-tank-hx--disabled" opacity="0.55" pointer-events="none">
+      <g class="buffer-tank-hx buffer-tank-hx--disabled" pointer-events="none">
         ${back.map(
           (d) => svg`
           <path
@@ -318,8 +394,7 @@ function renderHeatExchanger(
             stroke-width="${backStroke}"
             stroke-linecap="round"
             stroke-dasharray="3 3"
-            fill-opacity="0"
-            opacity="0.5"
+            opacity="0.55"
           />`,
         )}
         ${front.map(
@@ -333,6 +408,22 @@ function renderHeatExchanger(
             opacity="0.85"
           />`,
         )}
+        <path
+          d="${supplyPipeD}"
+          fill="none"
+          stroke="${frameStroke}"
+          stroke-width="${strokeWidth}"
+          stroke-linecap="round"
+          opacity="0.85"
+        />
+        <path
+          d="${returnPipeD}"
+          fill="none"
+          stroke="${frameStroke}"
+          stroke-width="${strokeWidth}"
+          stroke-linecap="round"
+          opacity="0.85"
+        />
       </g>
     `;
   }
@@ -349,6 +440,19 @@ function renderHeatExchanger(
       ? temperatureToColor(returnT, minT, maxT, cold, hot)
       : mid;
   const outlineColor = 'var(--primary-text-color, #222)';
+
+  const flowOverlay = hx.flow_animation
+    ? svg`
+      <path
+        class="buffer-tank-hx__flow"
+        d="${flowPath}"
+        fill="none"
+        stroke="rgba(255,255,255,0.85)"
+        stroke-width="${Math.max(1.5, strokeWidth * 0.38)}"
+        stroke-linecap="round"
+        style="--btc-flow-duration: ${hx.flow_speed}s"
+      />`
+    : null;
 
   return svg`
     <defs>
@@ -373,7 +477,7 @@ function renderHeatExchanger(
           stroke="${outlineColor}"
           stroke-width="${backOutline}"
           stroke-linecap="round"
-          opacity="0.35"
+          opacity="0.6"
         />`,
       )}
       ${back.map(
@@ -384,7 +488,7 @@ function renderHeatExchanger(
           stroke="url(#${gradientId})"
           stroke-width="${backStroke}"
           stroke-linecap="round"
-          opacity="0.75"
+          opacity="0.95"
         />`,
       )}
       ${front.map(
@@ -409,6 +513,59 @@ function renderHeatExchanger(
           opacity="1"
         />`,
       )}
+      <path
+        d="${supplyPipeD}"
+        fill="none"
+        stroke="${outlineColor}"
+        stroke-width="${outlineWidth}"
+        stroke-linecap="round"
+        opacity="0.55"
+      />
+      <path
+        d="${supplyPipeD}"
+        fill="none"
+        stroke="${supplyColor}"
+        stroke-width="${strokeWidth}"
+        stroke-linecap="round"
+      />
+      <path
+        d="${returnPipeD}"
+        fill="none"
+        stroke="${outlineColor}"
+        stroke-width="${outlineWidth}"
+        stroke-linecap="round"
+        opacity="0.55"
+      />
+      <path
+        d="${returnPipeD}"
+        fill="none"
+        stroke="${returnColor}"
+        stroke-width="${strokeWidth}"
+        stroke-linecap="round"
+      />
+      ${flowOverlay}
+      <text
+        x="${labelX}"
+        y="${supplyLabelY}"
+        text-anchor="end"
+        font-size="9"
+        font-weight="600"
+        fill="var(--primary-text-color, #222)"
+        paint-order="stroke"
+        stroke="var(--card-background-color, #fff)"
+        stroke-width="2"
+      >${formatTemperature(supplyT)}</text>
+      <text
+        x="${labelX}"
+        y="${returnLabelY}"
+        text-anchor="end"
+        font-size="9"
+        font-weight="600"
+        fill="var(--primary-text-color, #222)"
+        paint-order="stroke"
+        stroke="var(--card-background-color, #fff)"
+        stroke-width="2"
+      >${formatTemperature(returnT)}</text>
     </g>
   `;
 }

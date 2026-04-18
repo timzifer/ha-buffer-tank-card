@@ -80,6 +80,8 @@ function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExch
     height_fraction: defaults.height_fraction,
     supply_temperature: supply,
     return_temperature: ret,
+    flow_animation: defaults.flow_animation,
+    flow_speed: defaults.flow_speed,
     name: raw.name,
   };
 }
