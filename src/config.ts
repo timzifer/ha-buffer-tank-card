@@ -1,4 +1,4 @@
-import type { CardConfig, CardMode, SensorConfig } from './types';
+import type { CardConfig, CardMode, HeatExchangerConfig, SensorConfig } from './types';
 
 export const DEFAULT_COLOR_HOT = '#d32f2f';
 export const DEFAULT_COLOR_COLD = '#1976d2';
@@ -14,6 +14,69 @@ export function detectMode(config: CardConfig): CardMode {
   throw new ConfigError(
     'Configure either `entity` (Mode A) or `sensors` + `tank_height` (Mode B).',
   );
+}
+
+function validateHeatExchanger(raw: unknown): HeatExchangerConfig {
+  if (!raw || typeof raw !== 'object') {
+    throw new ConfigError('`heat_exchanger` must be an object.');
+  }
+  const r = raw as Record<string, unknown>;
+  const out: HeatExchangerConfig = {};
+
+  if (r.position !== undefined) {
+    if (r.position !== 'top' && r.position !== 'bottom') {
+      throw new ConfigError('`heat_exchanger.position` must be `top` or `bottom`.');
+    }
+    out.position = r.position;
+  }
+  if (r.supply_entity !== undefined) {
+    if (typeof r.supply_entity !== 'string' || !r.supply_entity) {
+      throw new ConfigError('`heat_exchanger.supply_entity` must be a non-empty string.');
+    }
+    out.supply_entity = r.supply_entity;
+  }
+  if (r.return_entity !== undefined) {
+    if (typeof r.return_entity !== 'string' || !r.return_entity) {
+      throw new ConfigError('`heat_exchanger.return_entity` must be a non-empty string.');
+    }
+    out.return_entity = r.return_entity;
+  }
+  if (r.enabled !== undefined) {
+    if (typeof r.enabled === 'boolean') {
+      out.enabled = r.enabled;
+    } else if (typeof r.enabled === 'string' && r.enabled) {
+      out.enabled = r.enabled;
+    } else {
+      throw new ConfigError(
+        '`heat_exchanger.enabled` must be a boolean or a non-empty entity id.',
+      );
+    }
+  }
+  if (r.turns !== undefined) {
+    if (typeof r.turns !== 'number' || !Number.isFinite(r.turns) || r.turns < 1) {
+      throw new ConfigError('`heat_exchanger.turns` must be a number >= 1.');
+    }
+    out.turns = r.turns;
+  }
+  if (r.height_fraction !== undefined) {
+    if (
+      typeof r.height_fraction !== 'number' ||
+      !Number.isFinite(r.height_fraction) ||
+      r.height_fraction <= 0 ||
+      r.height_fraction > 1
+    ) {
+      throw new ConfigError('`heat_exchanger.height_fraction` must be a number in (0, 1].');
+    }
+    out.height_fraction = r.height_fraction;
+  }
+  if (r.name !== undefined) {
+    if (typeof r.name !== 'string') {
+      throw new ConfigError('`heat_exchanger.name` must be a string.');
+    }
+    out.name = r.name;
+  }
+
+  return out;
 }
 
 function validateSensor(sensor: unknown, index: number): SensorConfig {
@@ -97,6 +160,10 @@ export function validateConfig(config: unknown): CardConfig {
   if (typeof c.show_thermocline === 'boolean') out.show_thermocline = c.show_thermocline;
   if (typeof c.name === 'string') out.name = c.name;
 
+  if (c.heat_exchanger !== undefined) {
+    out.heat_exchanger = validateHeatExchanger(c.heat_exchanger);
+  }
+
   if (c.tap_action) out.tap_action = c.tap_action as CardConfig['tap_action'];
   if (c.hold_action) out.hold_action = c.hold_action as CardConfig['hold_action'];
   if (c.double_tap_action) out.double_tap_action = c.double_tap_action as CardConfig['double_tap_action'];
@@ -120,4 +187,20 @@ export function resolveProbeSide(config: CardConfig): 'left' | 'right' | 'altern
 
 export function resolveShowStats(config: CardConfig): boolean {
   return config.show_stats ?? true;
+}
+
+export const DEFAULT_HX_TURNS = 6;
+export const DEFAULT_HX_HEIGHT_FRACTION = 0.35;
+export const DEFAULT_HX_POSITION: 'top' | 'bottom' = 'bottom';
+
+export function resolveHeatExchangerDefaults(hx: HeatExchangerConfig): {
+  position: 'top' | 'bottom';
+  turns: number;
+  height_fraction: number;
+} {
+  return {
+    position: hx.position ?? DEFAULT_HX_POSITION,
+    turns: hx.turns ?? DEFAULT_HX_TURNS,
+    height_fraction: hx.height_fraction ?? DEFAULT_HX_HEIGHT_FRACTION,
+  };
 }

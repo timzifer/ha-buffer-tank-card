@@ -1,12 +1,12 @@
 import { svg, SVGTemplateResult } from 'lit';
-import type { CardConfig, ProbeData, TankData } from './types';
+import type { CardConfig, HeatExchangerData, ProbeData, TankData } from './types';
 import {
   DEFAULT_COLOR_COLD,
   DEFAULT_COLOR_HOT,
   resolveProbeSide,
   resolveShowStats,
 } from './config';
-import { clamp, hexLerp } from './colors';
+import { clamp, hexLerp, temperatureToColor } from './colors';
 
 const VIEW_W = 200;
 const VIEW_H = 400;
@@ -24,6 +24,7 @@ const PROBE_TICK = 10;
 export interface RenderOptions {
   gradientId: string;
   hatchId: string;
+  coilGradientId: string;
   showThermocline: boolean;
 }
 
@@ -42,6 +43,9 @@ export function renderTank(
   const stops = buildGradientStops(data.layers, minT, maxT, cold, hot, sameRange);
   const probeElements = renderProbes(data.probes, data.tank_height_mm, config);
   const thermocline = opts.showThermocline ? renderThermocline(data, opts.hatchId) : null;
+  const heatExchanger = data.heat_exchanger
+    ? renderHeatExchanger(data.heat_exchanger, minT, maxT, cold, hot, opts.coilGradientId)
+    : null;
   const stats = showStats ? renderStats(data) : null;
 
   return svg`
@@ -75,6 +79,7 @@ export function renderTank(
         stroke-width="1.5"
       />
       ${thermocline}
+      ${heatExchanger}
       ${probeElements}
       ${stats}
     </svg>
@@ -201,6 +206,183 @@ function renderThermocline(data: TankData, hatchId: string): SVGTemplateResult |
       fill="url(#${hatchId})"
       pointer-events="none"
     />
+  `;
+}
+
+interface CoilPoint {
+  x: number;
+  y: number;
+  front: boolean;
+}
+
+function buildCoilGeometry(hx: HeatExchangerData): {
+  regionTop: number;
+  regionBottom: number;
+  cx: number;
+  rx: number;
+  ry: number;
+  points: CoilPoint[];
+} {
+  const turns = Math.max(1, Math.round(hx.turns));
+  const frac = clamp(hx.height_fraction, 0.05, 1);
+  const margin = 10;
+  const available = TANK_H - 2 * margin;
+  const regionH = Math.max(40, Math.min(available, TANK_H * frac));
+  const regionTop =
+    hx.position === 'top' ? TANK_TOP + margin : TANK_BOTTOM - margin - regionH;
+  const regionBottom = regionTop + regionH;
+
+  const cx = TANK_X + TANK_W / 2;
+  const rx = TANK_W * 0.36;
+  const ry = Math.max(4, Math.min(10, regionH / (turns * 4)));
+  const pitch = (regionH - 2 * ry) / turns;
+
+  const samplesPerTurn = 48;
+  const total = turns * samplesPerTurn;
+  const points: CoilPoint[] = [];
+  for (let i = 0; i <= total; i++) {
+    const t = i / samplesPerTurn;
+    const theta = 2 * Math.PI * t;
+    const x = cx + rx * Math.cos(theta);
+    const y = regionTop + ry + t * pitch + ry * Math.sin(theta);
+    points.push({ x, y, front: Math.sin(theta) > 0 });
+  }
+  return { regionTop, regionBottom, cx, rx, ry, points };
+}
+
+function pointsToPath(pts: { x: number; y: number }[]): string {
+  return pts
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+    .join(' ');
+}
+
+function splitCoilPaths(points: CoilPoint[]): { front: string[]; back: string[] } {
+  const front: string[] = [];
+  const back: string[] = [];
+  if (points.length === 0) return { front, back };
+
+  let runFront = points[0].front;
+  let run: CoilPoint[] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i];
+    if (p.front === runFront) {
+      run.push(p);
+    } else {
+      run.push(p);
+      (runFront ? front : back).push(pointsToPath(run));
+      run = [p];
+      runFront = p.front;
+    }
+  }
+  if (run.length > 1) {
+    (runFront ? front : back).push(pointsToPath(run));
+  }
+  return { front, back };
+}
+
+function renderHeatExchanger(
+  hx: HeatExchangerData,
+  minT: number,
+  maxT: number,
+  cold: string,
+  hot: string,
+  gradientId: string,
+): SVGTemplateResult {
+  const geom = buildCoilGeometry(hx);
+  const { regionTop, regionBottom, points } = geom;
+  const { front, back } = splitCoilPaths(points);
+
+  if (!hx.enabled) {
+    const frameStroke = 'var(--primary-text-color, #444)';
+    return svg`
+      <g class="buffer-tank-hx buffer-tank-hx--disabled" opacity="0.45" pointer-events="none">
+        ${back.map(
+          (d) => svg`
+          <path
+            d="${d}"
+            fill="none"
+            stroke="${frameStroke}"
+            stroke-width="1.2"
+            stroke-linecap="round"
+            stroke-dasharray="2 2"
+            opacity="0.55"
+          />`,
+        )}
+        ${front.map(
+          (d) => svg`
+          <path
+            d="${d}"
+            fill="none"
+            stroke="${frameStroke}"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          />`,
+        )}
+      </g>
+    `;
+  }
+
+  const supplyT = hx.supply_temperature;
+  const returnT = hx.return_temperature;
+  const mid = hexLerp(cold, hot, 0.5);
+  const supplyColor =
+    supplyT !== null && Number.isFinite(supplyT)
+      ? temperatureToColor(supplyT, minT, maxT, cold, hot)
+      : mid;
+  const returnColor =
+    returnT !== null && Number.isFinite(returnT)
+      ? temperatureToColor(returnT, minT, maxT, cold, hot)
+      : mid;
+
+  return svg`
+    <defs>
+      <linearGradient
+        id="${gradientId}"
+        gradientUnits="userSpaceOnUse"
+        x1="0"
+        y1="${regionTop}"
+        x2="0"
+        y2="${regionBottom}"
+      >
+        <stop offset="0" stop-color="${supplyColor}" />
+        <stop offset="1" stop-color="${returnColor}" />
+      </linearGradient>
+    </defs>
+    <g class="buffer-tank-hx" pointer-events="none">
+      ${back.map(
+        (d) => svg`
+        <path
+          d="${d}"
+          fill="none"
+          stroke="url(#${gradientId})"
+          stroke-width="3"
+          stroke-linecap="round"
+          opacity="0.4"
+        />`,
+      )}
+      ${front.map(
+        (d) => svg`
+        <path
+          d="${d}"
+          fill="none"
+          stroke="url(#${gradientId})"
+          stroke-width="4"
+          stroke-linecap="round"
+          opacity="0.95"
+        />`,
+      )}
+      ${front.map(
+        (d) => svg`
+        <path
+          d="${d}"
+          fill="none"
+          stroke="var(--primary-text-color, #222)"
+          stroke-width="0.6"
+          stroke-linecap="round"
+          opacity="0.35"
+        />`,
+      )}
+    </g>
   `;
 }
 

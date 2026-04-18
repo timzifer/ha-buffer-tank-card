@@ -49,6 +49,7 @@ export class BufferTankCard extends LitElement {
 
   private readonly _gradientId = `btc-grad-${++instanceCounter}`;
   private readonly _hatchId = `btc-hatch-${instanceCounter}`;
+  private readonly _coilGradientId = `btc-coil-${instanceCounter}`;
 
   public static getStubConfig(): Partial<CardConfig> {
     return {
@@ -121,6 +122,7 @@ export class BufferTankCard extends LitElement {
           ${renderTank(data, config, {
             gradientId: this._gradientId,
             hatchId: this._hatchId,
+            coilGradientId: this._coilGradientId,
             showThermocline,
           })}
           ${data.error
