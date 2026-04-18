@@ -83,7 +83,13 @@ class ActionHandler extends HTMLElement {
 }
 
 if (!customElements.get('buffer-tank-action-handler')) {
-  customElements.define('buffer-tank-action-handler', ActionHandler);
+  try {
+    customElements.define('buffer-tank-action-handler', ActionHandler);
+  } catch (err) {
+    if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+      throw err;
+    }
+  }
 }
 
 const getActionHandler = (): ActionHandler => {
