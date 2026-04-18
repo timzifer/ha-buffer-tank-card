@@ -192,5 +192,11 @@ declare global {
 }
 
 if (!customElements.get(CARD_TAG)) {
-  customElements.define(CARD_TAG, BufferTankCard);
+  try {
+    customElements.define(CARD_TAG, BufferTankCard);
+  } catch (err) {
+    if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+      throw err;
+    }
+  }
 }
