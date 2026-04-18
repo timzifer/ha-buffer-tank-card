@@ -69,6 +69,22 @@ function validateHeatExchanger(raw: unknown): HeatExchangerConfig {
     }
     out.height_fraction = r.height_fraction;
   }
+  if (r.flow_animation !== undefined) {
+    if (typeof r.flow_animation !== 'boolean') {
+      throw new ConfigError('`heat_exchanger.flow_animation` must be a boolean.');
+    }
+    out.flow_animation = r.flow_animation;
+  }
+  if (r.flow_speed !== undefined) {
+    if (
+      typeof r.flow_speed !== 'number' ||
+      !Number.isFinite(r.flow_speed) ||
+      r.flow_speed <= 0
+    ) {
+      throw new ConfigError('`heat_exchanger.flow_speed` must be a positive number (seconds).');
+    }
+    out.flow_speed = r.flow_speed;
+  }
   if (r.name !== undefined) {
     if (typeof r.name !== 'string') {
       throw new ConfigError('`heat_exchanger.name` must be a string.');
@@ -192,15 +208,21 @@ export function resolveShowStats(config: CardConfig): boolean {
 export const DEFAULT_HX_TURNS = 6;
 export const DEFAULT_HX_HEIGHT_FRACTION = 0.35;
 export const DEFAULT_HX_POSITION: 'top' | 'bottom' = 'bottom';
+export const DEFAULT_HX_FLOW_ANIMATION = false;
+export const DEFAULT_HX_FLOW_SPEED = 3;
 
 export function resolveHeatExchangerDefaults(hx: HeatExchangerConfig): {
   position: 'top' | 'bottom';
   turns: number;
   height_fraction: number;
+  flow_animation: boolean;
+  flow_speed: number;
 } {
   return {
     position: hx.position ?? DEFAULT_HX_POSITION,
     turns: hx.turns ?? DEFAULT_HX_TURNS,
     height_fraction: hx.height_fraction ?? DEFAULT_HX_HEIGHT_FRACTION,
+    flow_animation: hx.flow_animation ?? DEFAULT_HX_FLOW_ANIMATION,
+    flow_speed: hx.flow_speed ?? DEFAULT_HX_FLOW_SPEED,
   };
 }

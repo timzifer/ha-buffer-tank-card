@@ -183,6 +183,20 @@ export class BufferTankCard extends LitElement {
         text-align: center;
         color: var(--secondary-text-color, #666);
       }
+      .buffer-tank-hx__flow {
+        stroke-dasharray: 3 10;
+        animation: btc-hx-flow var(--btc-flow-duration, 3s) linear infinite;
+      }
+      @keyframes btc-hx-flow {
+        to {
+          stroke-dashoffset: -13;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .buffer-tank-hx__flow {
+          animation: none;
+        }
+      }
     `;
   }
 }

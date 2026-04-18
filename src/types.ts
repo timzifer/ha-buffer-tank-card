@@ -17,6 +17,8 @@ export interface HeatExchangerConfig {
   enabled?: boolean | string;
   turns?: number;
   height_fraction?: number;
+  flow_animation?: boolean;
+  flow_speed?: number;
   name?: string;
 }
 
@@ -56,6 +58,8 @@ export interface HeatExchangerData {
   height_fraction: number;
   supply_temperature: number | null;
   return_temperature: number | null;
+  flow_animation: boolean;
+  flow_speed: number;
   name?: string;
 }
 
