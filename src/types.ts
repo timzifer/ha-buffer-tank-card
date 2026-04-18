@@ -2,10 +2,22 @@ import type { ActionConfig } from 'custom-card-helpers';
 
 export type ProbeSide = 'left' | 'right' | 'alternating';
 
+export type HeatExchangerPosition = 'top' | 'bottom';
+
 export interface SensorConfig {
   entity: string;
   name?: string;
   position: number;
+}
+
+export interface HeatExchangerConfig {
+  position?: HeatExchangerPosition;
+  supply_entity?: string;
+  return_entity?: string;
+  enabled?: boolean;
+  turns?: number;
+  height_fraction?: number;
+  name?: string;
 }
 
 export interface CardConfig {
@@ -20,6 +32,7 @@ export interface CardConfig {
   probe_side?: ProbeSide;
   show_stats?: boolean;
   show_thermocline?: boolean;
+  heat_exchanger?: HeatExchangerConfig;
   name?: string;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
@@ -36,6 +49,16 @@ export interface ProbeData {
   virtual: boolean;
 }
 
+export interface HeatExchangerData {
+  position: HeatExchangerPosition;
+  enabled: boolean;
+  turns: number;
+  height_fraction: number;
+  supply_temperature: number | null;
+  return_temperature: number | null;
+  name?: string;
+}
+
 export interface TankData {
   mode: CardMode;
   tank_height_mm: number;
@@ -50,5 +73,6 @@ export interface TankData {
   average: number | null;
   delta: number | null;
   available: boolean;
+  heat_exchanger?: HeatExchangerData;
   error?: string;
 }

@@ -97,8 +97,36 @@ side, `show_stats`, `show_thermocline`, and the actions in YAML.
 | `probe_side` | `alternating` | `left`, `right`, or `alternating`. |
 | `show_stats` | `true` | Overlay with Ø, Δ and (Mode A) SoC. |
 | `show_thermocline` | `true` (Mode A) | Set to `false` to hide the hatched band. |
+| `heat_exchanger` | — | Optional coiled heat exchanger overlay. See below. |
 | `name` | — | Optional card header. |
 | `tap_action`, `hold_action`, `double_tap_action` | — | Standard HA actions. |
+
+## Heat exchanger overlay
+
+Draws a coiled (helical) heat exchanger inside the tank. The coil's color
+gradient runs along the wendel from its supply end (top turn) to its return end
+(bottom turn); both ends are mapped onto the tank's `min_temperature` /
+`max_temperature` range (cold → `color_cold`, hot → `color_hot`). If the coil
+is disabled it is rendered as a semi-transparent outline only.
+
+```yaml
+heat_exchanger:
+  position: bottom          # top | bottom (default: bottom)
+  supply_entity: sensor.coil_supply_temp
+  return_entity: sensor.coil_return_temp
+  enabled: true             # default true; false → outline only, transparent
+  turns: 6                  # default 6
+  height_fraction: 0.35     # fraction of the tank height, default 0.35
+```
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `heat_exchanger.position` | `bottom` | Where the coil sits (`top` or `bottom`). |
+| `heat_exchanger.supply_entity` | — | Sensor for the supply-side (top of coil) temperature. |
+| `heat_exchanger.return_entity` | — | Sensor for the return-side (bottom of coil) temperature. |
+| `heat_exchanger.enabled` | `true` | When `false`, only the outline is drawn (no fill, slightly transparent). |
+| `heat_exchanger.turns` | `6` | Number of visible coil turns. |
+| `heat_exchanger.height_fraction` | `0.35` | Fraction of the tank height the coil occupies. |
 
 ## Development
 

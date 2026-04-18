@@ -1,6 +1,12 @@
 import type { HomeAssistant } from 'custom-card-helpers';
-import type { CardConfig, ProbeData, TankData } from './types';
-import { detectMode, DEFAULT_MAX_TEMP, DEFAULT_MIN_TEMP, LAYER_COUNT } from './config';
+import type { CardConfig, HeatExchangerData, ProbeData, TankData } from './types';
+import {
+  detectMode,
+  DEFAULT_MAX_TEMP,
+  DEFAULT_MIN_TEMP,
+  LAYER_COUNT,
+  resolveHeatExchangerDefaults,
+} from './config';
 import { buildLayers, ProbeSample } from './interpolate';
 
 const UNAVAILABLE_STATES = new Set(['unavailable', 'unknown', 'none', '']);
@@ -26,8 +32,31 @@ function statsForLayers(layers: number[]): { average: number | null; delta: numb
 
 export function resolveTankData(hass: HomeAssistant, config: CardConfig): TankData {
   const mode = detectMode(config);
-  if (mode === 'A') return resolveModeA(hass, config);
-  return resolveModeB(hass, config);
+  const base = mode === 'A' ? resolveModeA(hass, config) : resolveModeB(hass, config);
+  if (config.heat_exchanger) {
+    base.heat_exchanger = resolveHeatExchanger(hass, config);
+  }
+  return base;
+}
+
+function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExchangerData {
+  const raw = config.heat_exchanger!;
+  const defaults = resolveHeatExchangerDefaults(raw);
+  const supply = raw.supply_entity
+    ? parseNumber(hass?.states?.[raw.supply_entity]?.state)
+    : null;
+  const ret = raw.return_entity
+    ? parseNumber(hass?.states?.[raw.return_entity]?.state)
+    : null;
+  return {
+    position: defaults.position,
+    enabled: defaults.enabled,
+    turns: defaults.turns,
+    height_fraction: defaults.height_fraction,
+    supply_temperature: supply,
+    return_temperature: ret,
+    name: raw.name,
+  };
 }
 
 function baseErrorData(config: CardConfig, message: string): TankData {
