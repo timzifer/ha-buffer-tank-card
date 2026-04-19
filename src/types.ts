@@ -19,9 +19,14 @@ export interface HeatExchangerConfig {
   turns?: number;
   height_fraction?: number;
   flow_animation?: boolean;
-  flow_speed?: number;
+  flow_speed?: number | string;
   flow_color?: string;
   name?: string;
+}
+
+export interface ColorStop {
+  temperature: number;
+  color: string;
 }
 
 export interface CardConfig {
@@ -31,7 +36,7 @@ export interface CardConfig {
   sensors?: SensorConfig[];
   min_temperature?: number;
   max_temperature?: number;
-  colors?: string[];
+  colors?: ColorStop[];
   probe_side?: ProbeSide;
   show_stats?: boolean;
   show_thermocline?: boolean;

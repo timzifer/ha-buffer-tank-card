@@ -1,12 +1,18 @@
-import type { CardConfig, CardMode, HeatExchangerConfig, SensorConfig } from './types';
+import type {
+  CardConfig,
+  CardMode,
+  ColorStop,
+  HeatExchangerConfig,
+  SensorConfig,
+} from './types';
 
-export const DEFAULT_COLORS: readonly string[] = [
-  '#011F9D', // Indigo Dye
-  '#0030C9', // Impact Blue
-  '#659CFB', // Cornflower Blue
-  '#CAE6FF', // Andrea
-  '#FB623A', // Premium Orange
-  '#F12710', // Strong Vermillion
+export const DEFAULT_COLORS: readonly ColorStop[] = [
+  { temperature: 20, color: '#011F9D' }, // Indigo Dye (very cold)
+  { temperature: 25, color: '#0030C9' }, // Impact Blue
+  { temperature: 30, color: '#659CFB' }, // Cornflower Blue
+  { temperature: 35, color: '#CAE6FF' }, // Andrea (neutral)
+  { temperature: 50, color: '#FB623A' }, // Premium Orange
+  { temperature: 80, color: '#F12710' }, // Strong Vermillion (hot)
 ];
 export const DEFAULT_MIN_TEMP = 20;
 export const DEFAULT_MAX_TEMP = 80;
@@ -21,6 +27,23 @@ export function detectMode(config: CardConfig): CardMode {
   if (config.sensors && config.tank_height) return 'B';
   throw new ConfigError(
     'Configure either `entity` (Mode A) or `sensors` + `tank_height` (Mode B).',
+  );
+}
+
+function parseFlowSpeed(raw: unknown): number | string {
+  if (typeof raw === 'number') {
+    if (!Number.isFinite(raw) || raw < 0) {
+      throw new ConfigError(
+        '`heat_exchanger.flow_speed` must be a number in 0–1 (fraction) or 0–100 (percent), or an entity id.',
+      );
+    }
+    return raw;
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw;
+  }
+  throw new ConfigError(
+    '`heat_exchanger.flow_speed` must be a number (0–1 fraction or 0–100 percent) or an entity id string.',
   );
 }
 
@@ -95,14 +118,7 @@ function validateHeatExchanger(raw: unknown): HeatExchangerConfig {
     out.flow_animation = r.flow_animation;
   }
   if (r.flow_speed !== undefined) {
-    if (
-      typeof r.flow_speed !== 'number' ||
-      !Number.isFinite(r.flow_speed) ||
-      r.flow_speed <= 0
-    ) {
-      throw new ConfigError('`heat_exchanger.flow_speed` must be a positive number (seconds).');
-    }
-    out.flow_speed = r.flow_speed;
+    out.flow_speed = parseFlowSpeed(r.flow_speed);
   }
   if (r.flow_color !== undefined) {
     if (typeof r.flow_color !== 'string' || !r.flow_color.trim()) {
@@ -134,6 +150,52 @@ function validateSensor(sensor: unknown, index: number): SensorConfig {
   const result: SensorConfig = { entity: s.entity, position: s.position };
   if (typeof s.name === 'string') result.name = s.name;
   return result;
+}
+
+function parseColorKey(key: unknown): number {
+  if (typeof key === 'number' && Number.isFinite(key)) return key;
+  if (typeof key === 'string') {
+    const n = parseFloat(key);
+    if (Number.isFinite(n)) return n;
+  }
+  throw new ConfigError(
+    `colors keys must be numeric temperatures (e.g. \`35: "#CAE6FF"\`); got \`${String(key)}\`.`,
+  );
+}
+
+function validateColors(raw: unknown): ColorStop[] {
+  if (Array.isArray(raw)) {
+    throw new ConfigError(
+      '`colors` must be a map of temperature → hex color (e.g. `colors: { 20: "#011F9D", 35: "#CAE6FF", 80: "#F12710" }`). The legacy list form was removed.',
+    );
+  }
+  if (!raw || typeof raw !== 'object') {
+    throw new ConfigError(
+      '`colors` must be a map of temperature → hex color (e.g. `colors: { 20: "#011F9D", 35: "#CAE6FF", 80: "#F12710" }`).',
+    );
+  }
+  const entries = Object.entries(raw as Record<string, unknown>);
+  if (entries.length < 2) {
+    throw new ConfigError('`colors` must contain at least two temperature → color entries.');
+  }
+  const stops: ColorStop[] = entries.map(([key, value]) => {
+    const temperature = parseColorKey(key);
+    if (typeof value !== 'string' || !HEX_COLOR_RE.test(value)) {
+      throw new ConfigError(
+        `colors[${key}] must be a hex color string like "#1976d2" or "#abc".`,
+      );
+    }
+    return { temperature, color: value };
+  });
+  stops.sort((a, b) => a.temperature - b.temperature);
+  for (let i = 1; i < stops.length; i++) {
+    if (stops[i].temperature === stops[i - 1].temperature) {
+      throw new ConfigError(
+        `colors contains duplicate temperature ${stops[i].temperature}. Use unique keys.`,
+      );
+    }
+  }
+  return stops;
 }
 
 export function validateConfig(config: unknown): CardConfig {
@@ -189,27 +251,12 @@ export function validateConfig(config: unknown): CardConfig {
 
   if (c.color_hot !== undefined || c.color_cold !== undefined) {
     throw new ConfigError(
-      '`color_hot` and `color_cold` were replaced by `colors` (array of hex colors, cold → hot). Example: `colors: ["#011F9D", "#0030C9", "#659CFB", "#CAE6FF", "#FB623A", "#F12710"]`.',
+      '`color_hot` and `color_cold` were replaced by `colors` (map of temperature → hex color). Example: `colors: { 20: "#011F9D", 35: "#CAE6FF", 80: "#F12710" }`.',
     );
   }
 
   if (c.colors !== undefined) {
-    if (!Array.isArray(c.colors)) {
-      throw new ConfigError('`colors` must be a list of hex color strings (cold → hot).');
-    }
-    if (c.colors.length < 2) {
-      throw new ConfigError('`colors` must contain at least two entries (cold → hot).');
-    }
-    const parsed: string[] = [];
-    c.colors.forEach((entry, i) => {
-      if (typeof entry !== 'string' || !HEX_COLOR_RE.test(entry)) {
-        throw new ConfigError(
-          `colors[${i}] must be a hex color string like "#1976d2" or "#abc".`,
-        );
-      }
-      parsed.push(entry);
-    });
-    out.colors = parsed;
+    out.colors = validateColors(c.colors);
   }
 
   if (c.probe_side !== undefined) {
@@ -237,8 +284,8 @@ export function validateConfig(config: unknown): CardConfig {
   return out;
 }
 
-export function resolveColors(config: CardConfig): string[] {
-  return config.colors ?? [...DEFAULT_COLORS];
+export function resolveColors(config: CardConfig): ColorStop[] {
+  return config.colors ?? DEFAULT_COLORS.map((s) => ({ ...s }));
 }
 
 export function resolveProbeSide(config: CardConfig): 'left' | 'right' | 'alternating' {
@@ -253,15 +300,39 @@ export const DEFAULT_HX_TURNS = 6;
 export const DEFAULT_HX_HEIGHT_FRACTION = 0.35;
 export const DEFAULT_HX_POSITION: 'top' | 'bottom' = 'bottom';
 export const DEFAULT_HX_FLOW_ANIMATION = false;
-export const DEFAULT_HX_FLOW_SPEED = 3;
+export const DEFAULT_HX_FLOW_SPEED = 0.5;
 export const DEFAULT_HX_FLOW_COLOR = 'rgba(255,255,255,0.55)';
+
+// Minimum/maximum duration (seconds) at the ends of the 0–1 speed range.
+export const FLOW_MIN_DURATION_S = 0.5;
+export const FLOW_MAX_DURATION_S = 20;
+
+/**
+ * Normalize a raw numeric speed value to a 0–1 fraction.
+ * Values ≤ 1 are treated as fractions, values > 1 as percentages (0–100).
+ */
+export function normalizeSpeedFraction(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const fraction = value <= 1 ? value : value / 100;
+  if (fraction <= 0) return 0;
+  if (fraction >= 1) return 1;
+  return fraction;
+}
+
+/**
+ * Convert a 0–1 speed fraction into an animation duration in seconds.
+ * 0 → stopped (returns FLOW_MAX_DURATION_S), 1 → FLOW_MIN_DURATION_S.
+ */
+export function speedFractionToDuration(fraction: number): number {
+  const f = fraction <= 0 ? 0 : fraction >= 1 ? 1 : fraction;
+  return FLOW_MAX_DURATION_S - f * (FLOW_MAX_DURATION_S - FLOW_MIN_DURATION_S);
+}
 
 export function resolveHeatExchangerDefaults(hx: HeatExchangerConfig): {
   position: 'top' | 'bottom';
   turns: number;
   height_fraction: number;
   flow_animation: boolean;
-  flow_speed: number;
   flow_color: string;
 } {
   return {
@@ -269,7 +340,6 @@ export function resolveHeatExchangerDefaults(hx: HeatExchangerConfig): {
     turns: hx.turns ?? DEFAULT_HX_TURNS,
     height_fraction: hx.height_fraction ?? DEFAULT_HX_HEIGHT_FRACTION,
     flow_animation: hx.flow_animation ?? DEFAULT_HX_FLOW_ANIMATION,
-    flow_speed: hx.flow_speed ?? DEFAULT_HX_FLOW_SPEED,
     flow_color: hx.flow_color ?? DEFAULT_HX_FLOW_COLOR,
   };
 }

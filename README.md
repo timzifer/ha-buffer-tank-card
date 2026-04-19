@@ -46,13 +46,13 @@ sensors:
     position: 200
 min_temperature: 20
 max_temperature: 80
-colors:                    # cold → hot, optional, must be >= 2 hex colors
-  - "#011F9D"
-  - "#0030C9"
-  - "#659CFB"
-  - "#CAE6FF"
-  - "#FB623A"
-  - "#F12710"
+colors:                    # map of temperature °C → hex color; at least 2 entries
+  20: "#011F9D"
+  25: "#0030C9"
+  30: "#659CFB"
+  35: "#CAE6FF"            # neutral (default mid-point)
+  50: "#FB623A"
+  80: "#F12710"
 probe_side: alternating    # left | right | alternating
 show_stats: true
 tap_action:
@@ -97,7 +97,7 @@ side, `show_stats`, `show_thermocline`, and the actions in YAML.
 | `sensors[]` | — | Mode B. List of `{ entity, name?, position }`. |
 | `min_temperature` | attr `min_temperature` or `reference_temperature` or `20` | Lower color-scale bound. |
 | `max_temperature` | attr `max_temperature` or `80` | Upper color-scale bound. |
-| `colors` | `["#011F9D", "#0030C9", "#659CFB", "#CAE6FF", "#FB623A", "#F12710"]` | Array of hex colors (cold → hot). Must contain at least two entries; 3-digit and 6-digit hex accepted. Replaces the old `color_cold` / `color_hot` keys (a config error is raised if either legacy key is still present). |
+| `colors` | `{20: "#011F9D", 25: "#0030C9", 30: "#659CFB", 35: "#CAE6FF", 50: "#FB623A", 80: "#F12710"}` | Map of temperature °C → hex color. At least two entries; temperatures outside the map's range are clamped to the nearest stop, temperatures between stops are linearly interpolated. The default places the neutral light-blue tone at 35 °C. Replaces the former list form and the legacy `color_cold` / `color_hot` keys — a config error is raised if either is still present. |
 | `probe_side` | `alternating` | `left`, `right`, or `alternating`. |
 | `show_stats` | `true` | Overlay with Ø, Δ and (Mode A) SoC. |
 | `show_thermocline` | `true` (Mode A) | Set to `false` to hide the hatched band. |
@@ -127,7 +127,7 @@ heat_exchanger:
   turns: 6                              # default 6
   height_fraction: 0.35                 # fraction of the tank height, default 0.35
   flow_animation: true                  # default false; animates dashes along the coil
-  flow_speed: 2                         # seconds per dash cycle; default 3
+  flow_speed: 0.5                       # 0–1 fraction or 0–100 percent, or entity id; default 0.5
   flow_color: "rgba(255,255,255,0.55)"  # CSS color for the animated dashes
 ```
 
@@ -141,7 +141,7 @@ heat_exchanger:
 | `heat_exchanger.turns` | `6` | Number of visible coil turns. |
 | `heat_exchanger.height_fraction` | `0.35` | Fraction of the tank height the coil occupies. |
 | `heat_exchanger.flow_animation` | `false` | When `true` and the coil is enabled, animated dashes flow from the supply pipe through the coil to the return pipe. Respects `prefers-reduced-motion`. |
-| `heat_exchanger.flow_speed` | `3` | Seconds per animation cycle (lower = faster). |
+| `heat_exchanger.flow_speed` | `0.5` | Animation speed as a fraction. Accepts a number (`0`–`1` fraction, `1`–`100` treated as percent) **or** an entity id whose numeric state supplies the value at runtime. `0` stops the animation, `1` is fastest. |
 | `heat_exchanger.flow_color` | `rgba(255,255,255,0.55)` | CSS color for the animated flow dashes. Accepts any CSS color, including `rgba()`/`hsla()` for transparency. |
 
 ## Development

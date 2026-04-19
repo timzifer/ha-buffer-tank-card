@@ -1,3 +1,5 @@
+import type { ColorStop } from './types';
+
 function parseHex(hex: string): [number, number, number] {
   let h = hex.trim();
   if (h.startsWith('#')) h = h.slice(1);
@@ -28,36 +30,29 @@ export function hexLerp(cold: string, hot: string, t: number): string {
   return `#${toHex(r1 + (r2 - r1) * k)}${toHex(g1 + (g2 - g1) * k)}${toHex(b1 + (b2 - b1) * k)}`;
 }
 
-export function temperatureToColor(
-  temperature: number,
-  minTemp: number,
-  maxTemp: number,
-  cold: string,
-  hot: string,
-): string {
-  if (!Number.isFinite(temperature)) return cold;
-  if (maxTemp === minTemp) return hexLerp(cold, hot, 0.5);
-  const t = (temperature - minTemp) / (maxTemp - minTemp);
-  return hexLerp(cold, hot, clamp(t, 0, 1));
+function fallbackColor(stops: ColorStop[]): string {
+  if (stops.length === 0) return '#808080';
+  return stops[Math.floor(stops.length / 2)].color;
 }
 
-export function colorArrayLerp(colors: string[], t: number): string {
-  if (colors.length === 0) return '#808080';
-  if (colors.length === 1) return colors[0];
-  const k = clamp(t, 0, 1);
-  const seg = k * (colors.length - 1);
-  const i = Math.min(colors.length - 2, Math.floor(seg));
-  return hexLerp(colors[i], colors[i + 1], seg - i);
-}
+export function temperatureToColor(temperature: number, stops: ColorStop[]): string {
+  if (stops.length === 0) return '#808080';
+  if (!Number.isFinite(temperature)) return fallbackColor(stops);
+  if (stops.length === 1) return stops[0].color;
 
-export function temperatureToColorArray(
-  temperature: number,
-  minTemp: number,
-  maxTemp: number,
-  colors: string[],
-): string {
-  if (!Number.isFinite(temperature)) return colorArrayLerp(colors, 0);
-  if (maxTemp === minTemp) return colorArrayLerp(colors, 0.5);
-  const t = (temperature - minTemp) / (maxTemp - minTemp);
-  return colorArrayLerp(colors, t);
+  if (temperature <= stops[0].temperature) return stops[0].color;
+  const last = stops[stops.length - 1];
+  if (temperature >= last.temperature) return last.color;
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = stops[i];
+    const b = stops[i + 1];
+    if (temperature >= a.temperature && temperature <= b.temperature) {
+      const span = b.temperature - a.temperature;
+      if (span <= 0) return a.color;
+      const t = (temperature - a.temperature) / span;
+      return hexLerp(a.color, b.color, t);
+    }
+  }
+  return last.color;
 }
