@@ -50,8 +50,12 @@ const ENABLED_FALSE_STATES = new Set([
   '0',
 ]);
 
-function resolveEnabled(hass: HomeAssistant, value: boolean | string | undefined): boolean {
-  if (value === undefined) return true;
+function resolveBoolOrEntity(
+  hass: HomeAssistant,
+  value: boolean | string | undefined,
+  defaultValue: boolean,
+): boolean {
+  if (value === undefined) return defaultValue;
   if (typeof value === 'boolean') return value;
   const state = hass?.states?.[value]?.state;
   if (state === undefined || state === null) return false;
@@ -66,7 +70,8 @@ function resolveEnabled(hass: HomeAssistant, value: boolean | string | undefined
 function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExchangerData {
   const raw = config.heat_exchanger!;
   const defaults = resolveHeatExchangerDefaults(raw);
-  const enabled = resolveEnabled(hass, raw.enabled);
+  const enabled = resolveBoolOrEntity(hass, raw.enabled, true);
+  const reverseFlow = resolveBoolOrEntity(hass, raw.reverse_flow, false);
   const supply = raw.supply_entity
     ? parseNumber(hass?.states?.[raw.supply_entity]?.state)
     : null;
@@ -76,12 +81,14 @@ function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExch
   return {
     position: defaults.position,
     enabled,
+    reverse_flow: reverseFlow,
     turns: defaults.turns,
     height_fraction: defaults.height_fraction,
     supply_temperature: supply,
     return_temperature: ret,
     flow_animation: defaults.flow_animation,
     flow_speed: defaults.flow_speed,
+    flow_color: defaults.flow_color,
     name: raw.name,
   };
 }

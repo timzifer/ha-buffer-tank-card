@@ -1,12 +1,7 @@
 import { svg, SVGTemplateResult } from 'lit';
 import type { CardConfig, HeatExchangerData, ProbeData, TankData } from './types';
-import {
-  DEFAULT_COLOR_COLD,
-  DEFAULT_COLOR_HOT,
-  resolveProbeSide,
-  resolveShowStats,
-} from './config';
-import { clamp, hexLerp, temperatureToColor } from './colors';
+import { resolveColors, resolveProbeSide, resolveShowStats } from './config';
+import { clamp, colorArrayLerp, temperatureToColorArray } from './colors';
 
 const VIEW_W = 200;
 const VIEW_H = 400;
@@ -33,18 +28,17 @@ export function renderTank(
   config: CardConfig,
   opts: RenderOptions,
 ): SVGTemplateResult {
-  const cold = config.color_cold ?? DEFAULT_COLOR_COLD;
-  const hot = config.color_hot ?? DEFAULT_COLOR_HOT;
+  const colors = resolveColors(config);
   const minT = data.min_temperature;
   const maxT = data.max_temperature;
   const sameRange = minT === maxT;
   const showStats = resolveShowStats(config);
 
-  const stops = buildGradientStops(data.layers, minT, maxT, cold, hot, sameRange);
+  const stops = buildGradientStops(data.layers, minT, maxT, colors, sameRange);
   const probeElements = renderProbes(data.probes, data.tank_height_mm, config);
   const thermocline = opts.showThermocline ? renderThermocline(data, opts.hatchId) : null;
   const heatExchanger = data.heat_exchanger
-    ? renderHeatExchanger(data.heat_exchanger, minT, maxT, cold, hot, opts.coilGradientId)
+    ? renderHeatExchanger(data.heat_exchanger, minT, maxT, colors, opts.coilGradientId)
     : null;
   const stats = showStats ? renderStats(data) : null;
 
@@ -90,8 +84,7 @@ function buildGradientStops(
   layers: number[],
   minT: number,
   maxT: number,
-  cold: string,
-  hot: string,
+  colors: string[],
   sameRange: boolean,
 ): SVGTemplateResult[] {
   const n = layers.length;
@@ -101,12 +94,12 @@ function buildGradientStops(
     const temp = layers[i];
     let color: string;
     if (!Number.isFinite(temp)) {
-      color = hexLerp(cold, hot, 0.5);
+      color = colorArrayLerp(colors, 0.5);
     } else if (sameRange) {
-      color = hexLerp(cold, hot, 0.5);
+      color = colorArrayLerp(colors, 0.5);
     } else {
       const t = clamp((temp - minT) / (maxT - minT), 0, 1);
-      color = hexLerp(cold, hot, t);
+      color = colorArrayLerp(colors, t);
     }
     const offset = n === 1 ? 0 : i / (n - 1);
     stops.push(svg`<stop offset="${offset}" stop-color="${color}" />`);
@@ -268,19 +261,22 @@ function buildCoilGeometry(hx: HeatExchangerData): CoilGeometry {
     points.push({ x, y, front: Math.sin(theta) > 0 });
   }
 
-  const first = points[0];
-  const last = points[points.length - 1];
+  // When the flow is reversed, the supply enters at the opposite end of the
+  // coil and the animation traces the path in reverse.
+  const flowOrder = hx.reverse_flow ? points.slice().reverse() : points;
+  const supplyEnd = flowOrder[0];
+  const returnEnd = flowOrder[flowOrder.length - 1];
   const supplyPipe: PipeSegment = {
-    x1: first.x,
-    y1: first.y,
+    x1: supplyEnd.x,
+    y1: supplyEnd.y,
     x2: PIPE_END_X,
-    y2: first.y,
+    y2: supplyEnd.y,
   };
   const returnPipe: PipeSegment = {
-    x1: last.x,
-    y1: last.y,
+    x1: returnEnd.x,
+    y1: returnEnd.y,
     x2: PIPE_END_X,
-    y2: last.y,
+    y2: returnEnd.y,
   };
 
   // Single continuous path from supply-pipe inlet through every coil sample
@@ -288,7 +284,7 @@ function buildCoilGeometry(hx: HeatExchangerData): CoilGeometry {
   const flowPoints: { x: number; y: number }[] = [
     { x: supplyPipe.x2, y: supplyPipe.y2 },
     { x: supplyPipe.x1, y: supplyPipe.y1 },
-    ...points,
+    ...flowOrder,
     { x: returnPipe.x2, y: returnPipe.y2 },
   ];
   const flowPath = pointsToPath(flowPoints);
@@ -352,8 +348,7 @@ function renderHeatExchanger(
   hx: HeatExchangerData,
   minT: number,
   maxT: number,
-  cold: string,
-  hot: string,
+  colors: string[],
   gradientId: string,
 ): SVGTemplateResult {
   const geom = buildCoilGeometry(hx);
@@ -378,8 +373,16 @@ function renderHeatExchanger(
   const supplyPipeD = pipePath(supplyPipe);
   const returnPipeD = pipePath(returnPipe);
 
-  const supplyLabelY = supplyPipe.y1 - strokeWidth / 2 - 3;
-  const returnLabelY = returnPipe.y1 + strokeWidth / 2 + 10;
+  // Place each pipe label on the side that points away from the coil body:
+  // the pipe nearer the top of the coil region gets its label above, the
+  // pipe nearer the bottom gets its label below.
+  const supplyAbove = supplyPipe.y1 <= returnPipe.y1;
+  const supplyLabelY = supplyAbove
+    ? supplyPipe.y1 - strokeWidth / 2 - 3
+    : supplyPipe.y1 + strokeWidth / 2 + 10;
+  const returnLabelY = supplyAbove
+    ? returnPipe.y1 + strokeWidth / 2 + 10
+    : returnPipe.y1 - strokeWidth / 2 - 3;
 
   if (!hx.enabled) {
     const frameStroke = 'var(--primary-text-color, #444)';
@@ -430,14 +433,14 @@ function renderHeatExchanger(
 
   const supplyT = hx.supply_temperature;
   const returnT = hx.return_temperature;
-  const mid = hexLerp(cold, hot, 0.5);
+  const mid = colorArrayLerp(colors, 0.5);
   const supplyColor =
     supplyT !== null && Number.isFinite(supplyT)
-      ? temperatureToColor(supplyT, minT, maxT, cold, hot)
+      ? temperatureToColorArray(supplyT, minT, maxT, colors)
       : mid;
   const returnColor =
     returnT !== null && Number.isFinite(returnT)
-      ? temperatureToColor(returnT, minT, maxT, cold, hot)
+      ? temperatureToColorArray(returnT, minT, maxT, colors)
       : mid;
   const outlineColor = 'var(--primary-text-color, #222)';
 
@@ -447,12 +450,18 @@ function renderHeatExchanger(
         class="buffer-tank-hx__flow"
         d="${flowPath}"
         fill="none"
-        stroke="rgba(255,255,255,0.85)"
+        stroke="${hx.flow_color}"
         stroke-width="${Math.max(1.5, strokeWidth * 0.38)}"
         stroke-linecap="round"
         style="--btc-flow-duration: ${hx.flow_speed}s"
       />`
     : null;
+
+  // Gradient runs top→bottom along the coil region. Under normal flow the
+  // supply pipe exits at the top, so stop 0 = supplyColor. When reversed, the
+  // supply exits at the bottom, so the stops swap.
+  const topColor = hx.reverse_flow ? returnColor : supplyColor;
+  const bottomColor = hx.reverse_flow ? supplyColor : returnColor;
 
   return svg`
     <defs>
@@ -464,8 +473,8 @@ function renderHeatExchanger(
         x2="0"
         y2="${regionBottom}"
       >
-        <stop offset="0" stop-color="${supplyColor}" />
-        <stop offset="1" stop-color="${returnColor}" />
+        <stop offset="0" stop-color="${topColor}" />
+        <stop offset="1" stop-color="${bottomColor}" />
       </linearGradient>
     </defs>
     <g class="buffer-tank-hx" pointer-events="none">
