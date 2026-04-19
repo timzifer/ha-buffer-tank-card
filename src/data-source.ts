@@ -1,11 +1,14 @@
 import type { HomeAssistant } from 'custom-card-helpers';
 import type { CardConfig, HeatExchangerData, ProbeData, TankData } from './types';
 import {
+  DEFAULT_HX_FLOW_SPEED,
   detectMode,
   DEFAULT_MAX_TEMP,
   DEFAULT_MIN_TEMP,
   LAYER_COUNT,
+  normalizeSpeedFraction,
   resolveHeatExchangerDefaults,
+  speedFractionToDuration,
 } from './config';
 import { buildLayers, ProbeSample } from './interpolate';
 
@@ -67,6 +70,19 @@ function resolveBoolOrEntity(
   return false;
 }
 
+function resolveSpeedFraction(
+  hass: HomeAssistant,
+  value: number | string | undefined,
+  defaultFraction: number,
+): number {
+  if (value === undefined) return normalizeSpeedFraction(defaultFraction);
+  if (typeof value === 'number') return normalizeSpeedFraction(value);
+  const state = hass?.states?.[value]?.state;
+  const n = parseNumber(state);
+  if (n === null) return normalizeSpeedFraction(defaultFraction);
+  return normalizeSpeedFraction(n);
+}
+
 function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExchangerData {
   const raw = config.heat_exchanger!;
   const defaults = resolveHeatExchangerDefaults(raw);
@@ -78,6 +94,8 @@ function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExch
   const ret = raw.return_entity
     ? parseNumber(hass?.states?.[raw.return_entity]?.state)
     : null;
+  const speedFraction = resolveSpeedFraction(hass, raw.flow_speed, DEFAULT_HX_FLOW_SPEED);
+  const flowAnimation = defaults.flow_animation && speedFraction > 0;
   return {
     position: defaults.position,
     enabled,
@@ -86,8 +104,8 @@ function resolveHeatExchanger(hass: HomeAssistant, config: CardConfig): HeatExch
     height_fraction: defaults.height_fraction,
     supply_temperature: supply,
     return_temperature: ret,
-    flow_animation: defaults.flow_animation,
-    flow_speed: defaults.flow_speed,
+    flow_animation: flowAnimation,
+    flow_speed: speedFractionToDuration(speedFraction),
     flow_color: defaults.flow_color,
     name: raw.name,
   };

@@ -1,7 +1,12 @@
 import { svg, SVGTemplateResult } from 'lit';
-import type { CardConfig, HeatExchangerData, ProbeData, TankData } from './types';
+import type { CardConfig, ColorStop, HeatExchangerData, ProbeData, TankData } from './types';
 import { resolveColors, resolveProbeSide, resolveShowStats } from './config';
-import { clamp, colorArrayLerp, temperatureToColorArray } from './colors';
+import { clamp, temperatureToColor } from './colors';
+
+function neutralColor(stops: ColorStop[]): string {
+  if (stops.length === 0) return '#808080';
+  return stops[Math.floor(stops.length / 2)].color;
+}
 
 const VIEW_W = 200;
 const VIEW_H = 400;
@@ -28,17 +33,14 @@ export function renderTank(
   config: CardConfig,
   opts: RenderOptions,
 ): SVGTemplateResult {
-  const colors = resolveColors(config);
-  const minT = data.min_temperature;
-  const maxT = data.max_temperature;
-  const sameRange = minT === maxT;
+  const colorStops = resolveColors(config);
   const showStats = resolveShowStats(config);
 
-  const stops = buildGradientStops(data.layers, minT, maxT, colors, sameRange);
+  const stops = buildGradientStops(data.layers, colorStops);
   const probeElements = renderProbes(data.probes, data.tank_height_mm, config);
   const thermocline = opts.showThermocline ? renderThermocline(data, opts.hatchId) : null;
   const heatExchanger = data.heat_exchanger
-    ? renderHeatExchanger(data.heat_exchanger, minT, maxT, colors, opts.coilGradientId)
+    ? renderHeatExchanger(data.heat_exchanger, colorStops, opts.coilGradientId)
     : null;
   const stats = showStats ? renderStats(data) : null;
 
@@ -82,25 +84,15 @@ export function renderTank(
 
 function buildGradientStops(
   layers: number[],
-  minT: number,
-  maxT: number,
-  colors: string[],
-  sameRange: boolean,
+  colorStops: ColorStop[],
 ): SVGTemplateResult[] {
   const n = layers.length;
   if (n === 0) return [];
+  const fallback = neutralColor(colorStops);
   const stops: SVGTemplateResult[] = [];
   for (let i = 0; i < n; i++) {
     const temp = layers[i];
-    let color: string;
-    if (!Number.isFinite(temp)) {
-      color = colorArrayLerp(colors, 0.5);
-    } else if (sameRange) {
-      color = colorArrayLerp(colors, 0.5);
-    } else {
-      const t = clamp((temp - minT) / (maxT - minT), 0, 1);
-      color = colorArrayLerp(colors, t);
-    }
+    const color = Number.isFinite(temp) ? temperatureToColor(temp, colorStops) : fallback;
     const offset = n === 1 ? 0 : i / (n - 1);
     stops.push(svg`<stop offset="${offset}" stop-color="${color}" />`);
   }
@@ -346,9 +338,7 @@ function pipePath(p: PipeSegment): string {
 
 function renderHeatExchanger(
   hx: HeatExchangerData,
-  minT: number,
-  maxT: number,
-  colors: string[],
+  colorStops: ColorStop[],
   gradientId: string,
 ): SVGTemplateResult {
   const geom = buildCoilGeometry(hx);
@@ -433,14 +423,14 @@ function renderHeatExchanger(
 
   const supplyT = hx.supply_temperature;
   const returnT = hx.return_temperature;
-  const mid = colorArrayLerp(colors, 0.5);
+  const mid = neutralColor(colorStops);
   const supplyColor =
     supplyT !== null && Number.isFinite(supplyT)
-      ? temperatureToColorArray(supplyT, minT, maxT, colors)
+      ? temperatureToColor(supplyT, colorStops)
       : mid;
   const returnColor =
     returnT !== null && Number.isFinite(returnT)
-      ? temperatureToColorArray(returnT, minT, maxT, colors)
+      ? temperatureToColor(returnT, colorStops)
       : mid;
   const outlineColor = 'var(--primary-text-color, #222)';
 
