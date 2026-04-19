@@ -15,10 +15,12 @@ export interface HeatExchangerConfig {
   supply_entity?: string;
   return_entity?: string;
   enabled?: boolean | string;
+  reverse_flow?: boolean | string;
   turns?: number;
   height_fraction?: number;
   flow_animation?: boolean;
   flow_speed?: number;
+  flow_color?: string;
   name?: string;
 }
 
@@ -29,8 +31,7 @@ export interface CardConfig {
   sensors?: SensorConfig[];
   min_temperature?: number;
   max_temperature?: number;
-  color_hot?: string;
-  color_cold?: string;
+  colors?: string[];
   probe_side?: ProbeSide;
   show_stats?: boolean;
   show_thermocline?: boolean;
@@ -54,12 +55,14 @@ export interface ProbeData {
 export interface HeatExchangerData {
   position: HeatExchangerPosition;
   enabled: boolean;
+  reverse_flow: boolean;
   turns: number;
   height_fraction: number;
   supply_temperature: number | null;
   return_temperature: number | null;
   flow_animation: boolean;
   flow_speed: number;
+  flow_color: string;
   name?: string;
 }
 

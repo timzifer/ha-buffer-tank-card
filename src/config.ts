@@ -1,10 +1,18 @@
 import type { CardConfig, CardMode, HeatExchangerConfig, SensorConfig } from './types';
 
-export const DEFAULT_COLOR_HOT = '#d32f2f';
-export const DEFAULT_COLOR_COLD = '#1976d2';
+export const DEFAULT_COLORS: readonly string[] = [
+  '#011F9D', // Indigo Dye
+  '#0030C9', // Impact Blue
+  '#659CFB', // Cornflower Blue
+  '#CAE6FF', // Andrea
+  '#FB623A', // Premium Orange
+  '#F12710', // Strong Vermillion
+];
 export const DEFAULT_MIN_TEMP = 20;
 export const DEFAULT_MAX_TEMP = 80;
 export const LAYER_COUNT = 100;
+
+const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 export class ConfigError extends Error {}
 
@@ -52,6 +60,17 @@ function validateHeatExchanger(raw: unknown): HeatExchangerConfig {
       );
     }
   }
+  if (r.reverse_flow !== undefined) {
+    if (typeof r.reverse_flow === 'boolean') {
+      out.reverse_flow = r.reverse_flow;
+    } else if (typeof r.reverse_flow === 'string' && r.reverse_flow) {
+      out.reverse_flow = r.reverse_flow;
+    } else {
+      throw new ConfigError(
+        '`heat_exchanger.reverse_flow` must be a boolean or a non-empty entity id.',
+      );
+    }
+  }
   if (r.turns !== undefined) {
     if (typeof r.turns !== 'number' || !Number.isFinite(r.turns) || r.turns < 1) {
       throw new ConfigError('`heat_exchanger.turns` must be a number >= 1.');
@@ -84,6 +103,12 @@ function validateHeatExchanger(raw: unknown): HeatExchangerConfig {
       throw new ConfigError('`heat_exchanger.flow_speed` must be a positive number (seconds).');
     }
     out.flow_speed = r.flow_speed;
+  }
+  if (r.flow_color !== undefined) {
+    if (typeof r.flow_color !== 'string' || !r.flow_color.trim()) {
+      throw new ConfigError('`heat_exchanger.flow_color` must be a non-empty CSS color string.');
+    }
+    out.flow_color = r.flow_color;
   }
   if (r.name !== undefined) {
     if (typeof r.name !== 'string') {
@@ -162,8 +187,30 @@ export function validateConfig(config: unknown): CardConfig {
     out.max_temperature = c.max_temperature;
   }
 
-  if (typeof c.color_hot === 'string') out.color_hot = c.color_hot;
-  if (typeof c.color_cold === 'string') out.color_cold = c.color_cold;
+  if (c.color_hot !== undefined || c.color_cold !== undefined) {
+    throw new ConfigError(
+      '`color_hot` and `color_cold` were replaced by `colors` (array of hex colors, cold → hot). Example: `colors: ["#011F9D", "#0030C9", "#659CFB", "#CAE6FF", "#FB623A", "#F12710"]`.',
+    );
+  }
+
+  if (c.colors !== undefined) {
+    if (!Array.isArray(c.colors)) {
+      throw new ConfigError('`colors` must be a list of hex color strings (cold → hot).');
+    }
+    if (c.colors.length < 2) {
+      throw new ConfigError('`colors` must contain at least two entries (cold → hot).');
+    }
+    const parsed: string[] = [];
+    c.colors.forEach((entry, i) => {
+      if (typeof entry !== 'string' || !HEX_COLOR_RE.test(entry)) {
+        throw new ConfigError(
+          `colors[${i}] must be a hex color string like "#1976d2" or "#abc".`,
+        );
+      }
+      parsed.push(entry);
+    });
+    out.colors = parsed;
+  }
 
   if (c.probe_side !== undefined) {
     if (c.probe_side !== 'left' && c.probe_side !== 'right' && c.probe_side !== 'alternating') {
@@ -190,11 +237,8 @@ export function validateConfig(config: unknown): CardConfig {
   return out;
 }
 
-export function resolveColors(config: CardConfig): { hot: string; cold: string } {
-  return {
-    hot: config.color_hot ?? DEFAULT_COLOR_HOT,
-    cold: config.color_cold ?? DEFAULT_COLOR_COLD,
-  };
+export function resolveColors(config: CardConfig): string[] {
+  return config.colors ?? [...DEFAULT_COLORS];
 }
 
 export function resolveProbeSide(config: CardConfig): 'left' | 'right' | 'alternating' {
@@ -210,6 +254,7 @@ export const DEFAULT_HX_HEIGHT_FRACTION = 0.35;
 export const DEFAULT_HX_POSITION: 'top' | 'bottom' = 'bottom';
 export const DEFAULT_HX_FLOW_ANIMATION = false;
 export const DEFAULT_HX_FLOW_SPEED = 3;
+export const DEFAULT_HX_FLOW_COLOR = 'rgba(255,255,255,0.55)';
 
 export function resolveHeatExchangerDefaults(hx: HeatExchangerConfig): {
   position: 'top' | 'bottom';
@@ -217,6 +262,7 @@ export function resolveHeatExchangerDefaults(hx: HeatExchangerConfig): {
   height_fraction: number;
   flow_animation: boolean;
   flow_speed: number;
+  flow_color: string;
 } {
   return {
     position: hx.position ?? DEFAULT_HX_POSITION,
@@ -224,5 +270,6 @@ export function resolveHeatExchangerDefaults(hx: HeatExchangerConfig): {
     height_fraction: hx.height_fraction ?? DEFAULT_HX_HEIGHT_FRACTION,
     flow_animation: hx.flow_animation ?? DEFAULT_HX_FLOW_ANIMATION,
     flow_speed: hx.flow_speed ?? DEFAULT_HX_FLOW_SPEED,
+    flow_color: hx.flow_color ?? DEFAULT_HX_FLOW_COLOR,
   };
 }

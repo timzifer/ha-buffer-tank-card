@@ -40,3 +40,24 @@ export function temperatureToColor(
   const t = (temperature - minTemp) / (maxTemp - minTemp);
   return hexLerp(cold, hot, clamp(t, 0, 1));
 }
+
+export function colorArrayLerp(colors: string[], t: number): string {
+  if (colors.length === 0) return '#808080';
+  if (colors.length === 1) return colors[0];
+  const k = clamp(t, 0, 1);
+  const seg = k * (colors.length - 1);
+  const i = Math.min(colors.length - 2, Math.floor(seg));
+  return hexLerp(colors[i], colors[i + 1], seg - i);
+}
+
+export function temperatureToColorArray(
+  temperature: number,
+  minTemp: number,
+  maxTemp: number,
+  colors: string[],
+): string {
+  if (!Number.isFinite(temperature)) return colorArrayLerp(colors, 0);
+  if (maxTemp === minTemp) return colorArrayLerp(colors, 0.5);
+  const t = (temperature - minTemp) / (maxTemp - minTemp);
+  return colorArrayLerp(colors, t);
+}

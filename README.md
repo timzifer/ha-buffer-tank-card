@@ -46,8 +46,13 @@ sensors:
     position: 200
 min_temperature: 20
 max_temperature: 80
-color_hot: "#d32f2f"
-color_cold: "#1976d2"
+colors:                    # cold → hot, optional, must be >= 2 hex colors
+  - "#011F9D"
+  - "#0030C9"
+  - "#659CFB"
+  - "#CAE6FF"
+  - "#FB623A"
+  - "#F12710"
 probe_side: alternating    # left | right | alternating
 show_stats: true
 tap_action:
@@ -92,8 +97,7 @@ side, `show_stats`, `show_thermocline`, and the actions in YAML.
 | `sensors[]` | — | Mode B. List of `{ entity, name?, position }`. |
 | `min_temperature` | attr `min_temperature` or `reference_temperature` or `20` | Lower color-scale bound. |
 | `max_temperature` | attr `max_temperature` or `80` | Upper color-scale bound. |
-| `color_cold` | `#1976d2` | Gradient base color. |
-| `color_hot` | `#d32f2f` | Gradient top color. |
+| `colors` | `["#011F9D", "#0030C9", "#659CFB", "#CAE6FF", "#FB623A", "#F12710"]` | Array of hex colors (cold → hot). Must contain at least two entries; 3-digit and 6-digit hex accepted. Replaces the old `color_cold` / `color_hot` keys (a config error is raised if either legacy key is still present). |
 | `probe_side` | `alternating` | `left`, `right`, or `alternating`. |
 | `show_stats` | `true` | Overlay with Ø, Δ and (Mode A) SoC. |
 | `show_thermocline` | `true` (Mode A) | Set to `false` to hide the hatched band. |
@@ -104,12 +108,14 @@ side, `show_stats`, `show_thermocline`, and the actions in YAML.
 ## Heat exchanger overlay
 
 Draws a coiled (helical) heat exchanger inside the tank. The coil's color
-gradient runs along the wendel from its supply end (top turn) to its return end
-(bottom turn); both ends are mapped onto the tank's `min_temperature` /
-`max_temperature` range (cold → `color_cold`, hot → `color_hot`). Straight
-supply and return pipes extend out of the right side of the tank and carry the
-current temperature as a label. If the coil is disabled it is rendered as a
-semi-transparent outline only.
+gradient runs along the wendel from its supply end to its return end; both ends
+are mapped onto the tank's `min_temperature` / `max_temperature` range through
+the configured `colors` palette. Straight supply and return pipes extend out of
+the right side of the tank and carry the current temperature as a label. If the
+coil is disabled it is rendered as a semi-transparent outline only. When
+`reverse_flow` is set, the supply pipe exits at the opposite end of the coil
+(bottom instead of top, or vice versa) and the flow animation runs in the
+opposite direction.
 
 ```yaml
 heat_exchanger:
@@ -117,22 +123,26 @@ heat_exchanger:
   supply_entity: sensor.coil_supply_temp
   return_entity: sensor.coil_return_temp
   enabled: binary_sensor.coil_active    # boolean or entity id; default true
+  reverse_flow: false                   # boolean or entity id; default false
   turns: 6                              # default 6
   height_fraction: 0.35                 # fraction of the tank height, default 0.35
   flow_animation: true                  # default false; animates dashes along the coil
   flow_speed: 2                         # seconds per dash cycle; default 3
+  flow_color: "rgba(255,255,255,0.55)"  # CSS color for the animated dashes
 ```
 
 | Option | Default | Notes |
 | --- | --- | --- |
 | `heat_exchanger.position` | `bottom` | Where the coil sits (`top` or `bottom`). |
-| `heat_exchanger.supply_entity` | — | Sensor for the supply-side (top of coil) temperature. Also used for the supply-pipe label. |
-| `heat_exchanger.return_entity` | — | Sensor for the return-side (bottom of coil) temperature. Also used for the return-pipe label. |
+| `heat_exchanger.supply_entity` | — | Sensor for the supply-side temperature. Used for the supply-pipe label. |
+| `heat_exchanger.return_entity` | — | Sensor for the return-side temperature. Used for the return-pipe label. |
 | `heat_exchanger.enabled` | `true` | Boolean, or an entity id (e.g. `binary_sensor.coil_active`, `switch.*`, `input_boolean.*`) whose state decides on/off. When off, only the outline is drawn (no fill, slightly transparent) and flow animation is suppressed. |
+| `heat_exchanger.reverse_flow` | `false` | Boolean, or an entity id whose state decides direction. When true, the supply pipe connects at the opposite end of the coil from the default (top ↔ bottom) and the animated dashes flow the other way. |
 | `heat_exchanger.turns` | `6` | Number of visible coil turns. |
 | `heat_exchanger.height_fraction` | `0.35` | Fraction of the tank height the coil occupies. |
 | `heat_exchanger.flow_animation` | `false` | When `true` and the coil is enabled, animated dashes flow from the supply pipe through the coil to the return pipe. Respects `prefers-reduced-motion`. |
 | `heat_exchanger.flow_speed` | `3` | Seconds per animation cycle (lower = faster). |
+| `heat_exchanger.flow_color` | `rgba(255,255,255,0.55)` | CSS color for the animated flow dashes. Accepts any CSS color, including `rgba()`/`hsla()` for transparency. |
 
 ## Development
 
