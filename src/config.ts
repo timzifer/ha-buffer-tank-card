@@ -270,6 +270,16 @@ export function validateConfig(config: unknown): CardConfig {
   if (typeof c.show_thermocline === 'boolean') out.show_thermocline = c.show_thermocline;
   if (typeof c.name === 'string') out.name = c.name;
 
+  for (const key of ['soc_entity', 'average_entity', 'delta_entity'] as const) {
+    const v = c[key];
+    if (v !== undefined) {
+      if (typeof v !== 'string' || !v) {
+        throw new ConfigError(`\`${key}\` must be a non-empty entity id string.`);
+      }
+      out[key] = v;
+    }
+  }
+
   if (c.heat_exchanger !== undefined) {
     out.heat_exchanger = validateHeatExchanger(c.heat_exchanger);
   }

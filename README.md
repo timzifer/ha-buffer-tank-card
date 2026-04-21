@@ -103,7 +103,14 @@ side, `show_stats`, `show_thermocline`, and the actions in YAML.
 | `show_thermocline` | `true` (Mode A) | Set to `false` to hide the hatched band. |
 | `heat_exchanger` | — | Optional coiled heat exchanger overlay. See below. |
 | `name` | — | Optional card header. |
+| `soc_entity` | `entity` (Mode A) | Entity opened when the central *SoC* label is clicked. |
+| `average_entity` | — | Entity opened when the central *Ø* (average) label is clicked. |
+| `delta_entity` | — | Entity opened when the central *Δ* (delta) label is clicked. |
 | `tap_action`, `hold_action`, `double_tap_action` | — | Standard HA actions. |
+
+Clicking a probe name/value (including virtual sensors in Mode A) opens the
+more-info dialog of that probe's entity. Clicking the central *SoC*, *Ø*, or
+*Δ* label opens the more-info dialog of the matching entity above.
 
 ## Heat exchanger overlay
 

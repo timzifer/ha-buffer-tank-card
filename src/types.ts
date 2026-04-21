@@ -42,6 +42,9 @@ export interface CardConfig {
   show_thermocline?: boolean;
   heat_exchanger?: HeatExchangerConfig;
   name?: string;
+  soc_entity?: string;
+  average_entity?: string;
+  delta_entity?: string;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;
