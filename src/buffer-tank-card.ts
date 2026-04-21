@@ -1,7 +1,7 @@
 import { LitElement, html, css, CSSResultGroup, TemplateResult, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from 'custom-card-helpers';
-import { handleAction, hasAction, ActionHandlerEvent } from 'custom-card-helpers';
+import { fireEvent, handleAction, hasAction, ActionHandlerEvent } from 'custom-card-helpers';
 import { actionHandler } from './action-handler';
 import type { CardConfig, TankData } from './types';
 import { ConfigError, validateConfig } from './config';
@@ -124,6 +124,10 @@ export class BufferTankCard extends LitElement {
             hatchId: this._hatchId,
             coilGradientId: this._coilGradientId,
             showThermocline,
+            onOpenEntity: this._openEntityDetails,
+            socEntity: config.soc_entity ?? config.entity,
+            averageEntity: config.average_entity,
+            deltaEntity: config.delta_entity,
           })}
           ${data.error
             ? html`<div class="overlay-error">${data.error}</div>`
@@ -140,6 +144,11 @@ export class BufferTankCard extends LitElement {
   private _handleAction = (ev: ActionHandlerEvent): void => {
     if (!this.hass || !this._config || !ev.detail?.action) return;
     handleAction(this, this.hass, this._config, ev.detail.action);
+  };
+
+  private _openEntityDetails = (entityId: string): void => {
+    if (!entityId) return;
+    fireEvent(this, 'hass-more-info', { entityId });
   };
 
   static get styles(): CSSResultGroup {
@@ -183,13 +192,17 @@ export class BufferTankCard extends LitElement {
         text-align: center;
         color: var(--secondary-text-color, #666);
       }
+      .buffer-tank-probe--clickable,
+      .buffer-tank-stat--clickable {
+        cursor: pointer;
+      }
       .buffer-tank-hx__flow {
         stroke-dasharray: 3 10;
         animation: btc-hx-flow var(--btc-flow-duration, 3s) linear infinite;
       }
       @keyframes btc-hx-flow {
         to {
-          stroke-dashoffset: -13;
+          stroke-dashoffset: -26;
         }
       }
       @media (prefers-reduced-motion: reduce) {

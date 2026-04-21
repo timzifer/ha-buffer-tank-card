@@ -26,6 +26,10 @@ export interface RenderOptions {
   hatchId: string;
   coilGradientId: string;
   showThermocline: boolean;
+  onOpenEntity?: (entityId: string) => void;
+  socEntity?: string;
+  averageEntity?: string;
+  deltaEntity?: string;
 }
 
 export function renderTank(
@@ -37,12 +41,19 @@ export function renderTank(
   const showStats = resolveShowStats(config);
 
   const stops = buildGradientStops(data.layers, colorStops);
-  const probeElements = renderProbes(data.probes, data.tank_height_mm, config);
+  const probeElements = renderProbes(data.probes, data.tank_height_mm, config, opts.onOpenEntity);
   const thermocline = opts.showThermocline ? renderThermocline(data, opts.hatchId) : null;
   const heatExchanger = data.heat_exchanger
     ? renderHeatExchanger(data.heat_exchanger, colorStops, opts.coilGradientId)
     : null;
-  const stats = showStats ? renderStats(data) : null;
+  const stats = showStats
+    ? renderStats(data, {
+        socEntity: opts.socEntity,
+        averageEntity: opts.averageEntity,
+        deltaEntity: opts.deltaEntity,
+        onOpenEntity: opts.onOpenEntity,
+      })
+    : null;
 
   return svg`
     <svg
@@ -105,10 +116,17 @@ function positionToY(positionMm: number, tankHeightMm: number): number {
   return TANK_TOP + TANK_H * (1 - frac);
 }
 
+const CHAR_WIDTH_PX = 5.4;
+
+function stopEventPropagation(ev: Event): void {
+  ev.stopPropagation();
+}
+
 function renderProbes(
   probes: ProbeData[],
   tankHeightMm: number,
   config: CardConfig,
+  onOpenEntity: ((entityId: string) => void) | undefined,
 ): SVGTemplateResult[] {
   if (probes.length === 0) return [];
   const side = resolveProbeSide(config);
@@ -131,37 +149,72 @@ function renderProbes(
     const tempStr =
       temp === null || !Number.isFinite(temp) ? 'n/a' : `${temp.toFixed(1)} °C`;
 
+    const entityId = probe.entity;
+    const clickable = Boolean(entityId && onOpenEntity);
+    const onClick = clickable
+      ? (ev: Event) => {
+          ev.stopPropagation();
+          onOpenEntity!(entityId!);
+        }
+      : null;
+
+    const textWidth = Math.max(name.length, tempStr.length) * CHAR_WIDTH_PX + 4;
+    const hitX = onLeft ? labelX - textWidth : labelX;
+    const hitY = y - 10;
+    const hitH = 22;
+
+    const groupClass = clickable
+      ? 'buffer-tank-probe buffer-tank-probe--clickable'
+      : 'buffer-tank-probe';
+
     elements.push(svg`
-      <line
-        x1="${lineX1}"
-        y1="${y}"
-        x2="${lineX2}"
-        y2="${y}"
-        stroke="var(--primary-text-color, #222)"
-        stroke-width="1.5"
-        stroke-dasharray="${probe.virtual ? '2 2' : 'none'}"
-      />
-      <text
-        x="${labelX}"
-        y="${y - 1}"
-        text-anchor="${textAnchor}"
-        font-size="9"
-        fill="var(--primary-text-color, #222)"
-        paint-order="stroke"
-        stroke="var(--card-background-color, #fff)"
-        stroke-width="2"
-      >${name}</text>
-      <text
-        x="${labelX}"
-        y="${y + 9}"
-        text-anchor="${textAnchor}"
-        font-size="9"
-        font-weight="600"
-        fill="var(--primary-text-color, #222)"
-        paint-order="stroke"
-        stroke="var(--card-background-color, #fff)"
-        stroke-width="2"
-      >${tempStr}</text>
+      <g
+        class="${groupClass}"
+        @click=${onClick}
+        @mousedown=${clickable ? stopEventPropagation : null}
+        @touchstart=${clickable ? stopEventPropagation : null}
+      >
+        <line
+          x1="${lineX1}"
+          y1="${y}"
+          x2="${lineX2}"
+          y2="${y}"
+          stroke="var(--primary-text-color, #222)"
+          stroke-width="1.5"
+          stroke-dasharray="${probe.virtual ? '2 2' : 'none'}"
+        />
+        ${clickable
+          ? svg`<rect
+              x="${hitX}"
+              y="${hitY}"
+              width="${textWidth}"
+              height="${hitH}"
+              fill="transparent"
+              pointer-events="all"
+            />`
+          : null}
+        <text
+          x="${labelX}"
+          y="${y - 1}"
+          text-anchor="${textAnchor}"
+          font-size="9"
+          fill="var(--primary-text-color, #222)"
+          paint-order="stroke"
+          stroke="var(--card-background-color, #fff)"
+          stroke-width="2"
+        >${name}</text>
+        <text
+          x="${labelX}"
+          y="${y + 9}"
+          text-anchor="${textAnchor}"
+          font-size="9"
+          font-weight="600"
+          fill="var(--primary-text-color, #222)"
+          paint-order="stroke"
+          stroke="var(--card-background-color, #fff)"
+          stroke-width="2"
+        >${tempStr}</text>
+      </g>
     `);
   });
 
@@ -569,30 +622,75 @@ function renderHeatExchanger(
   `;
 }
 
-function renderStats(data: TankData): SVGTemplateResult | null {
-  const lines: string[] = [];
+interface StatsOptions {
+  socEntity?: string;
+  averageEntity?: string;
+  deltaEntity?: string;
+  onOpenEntity?: (entityId: string) => void;
+}
+
+interface StatLine {
+  text: string;
+  entity?: string;
+}
+
+function renderStats(data: TankData, opts: StatsOptions): SVGTemplateResult | null {
+  const lines: StatLine[] = [];
   if (data.mode === 'A' && data.soc !== null && Number.isFinite(data.soc)) {
-    lines.push(`SoC: ${data.soc.toFixed(0)} %`);
+    lines.push({ text: `SoC: ${data.soc.toFixed(0)} %`, entity: opts.socEntity });
   }
   if (data.average !== null) {
-    lines.push(`Ø ${data.average.toFixed(1)} °C`);
+    lines.push({ text: `Ø ${data.average.toFixed(1)} °C`, entity: opts.averageEntity });
   }
   if (data.delta !== null) {
-    lines.push(`Δ ${data.delta.toFixed(1)} K`);
+    lines.push({ text: `Δ ${data.delta.toFixed(1)} K`, entity: opts.deltaEntity });
   }
   if (lines.length === 0) return null;
 
   const cx = TANK_X + TANK_W / 2;
   const baseY = TANK_TOP + TANK_H / 2 - ((lines.length - 1) * 18) / 2;
+  const lineH = 20;
+  const statCharWidth = 9;
 
   return svg`
     <g font-family="var(--paper-font-body1_-_font-family, sans-serif)" text-anchor="middle"
        paint-order="stroke" stroke="#ffffff" stroke-width="3" fill="#000000">
-      ${lines.map(
-        (line, i) => svg`
-          <text x="${cx}" y="${baseY + i * 18}" font-size="16" font-weight="600">${line}</text>
-        `,
-      )}
+      ${lines.map((line, i) => {
+        const y = baseY + i * 18;
+        const clickable = Boolean(line.entity && opts.onOpenEntity);
+        const entityId = line.entity;
+        const onClick = clickable
+          ? (ev: Event) => {
+              ev.stopPropagation();
+              opts.onOpenEntity!(entityId!);
+            }
+          : null;
+        const hitW = Math.max(40, line.text.length * statCharWidth);
+        const groupClass = clickable
+          ? 'buffer-tank-stat buffer-tank-stat--clickable'
+          : 'buffer-tank-stat';
+        return svg`
+          <g
+            class="${groupClass}"
+            @click=${onClick}
+            @mousedown=${clickable ? stopEventPropagation : null}
+            @touchstart=${clickable ? stopEventPropagation : null}
+          >
+            ${clickable
+              ? svg`<rect
+                  x="${cx - hitW / 2}"
+                  y="${y - lineH / 2 - 2}"
+                  width="${hitW}"
+                  height="${lineH}"
+                  fill="transparent"
+                  stroke="none"
+                  pointer-events="all"
+                />`
+              : null}
+            <text x="${cx}" y="${y}" font-size="16" font-weight="600">${line.text}</text>
+          </g>
+        `;
+      })}
     </g>
   `;
 }
